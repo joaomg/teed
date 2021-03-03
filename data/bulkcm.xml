@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<bulkCmConfigDataFile xmlns="http://www.3gpp.org/ftp/specs/archive/32_series/32.615#configData"
+    xmlns:xn="http://www.3gpp.org/ftp/specs/archive/32_series/32.625#genericNrm">
+    <configData dnPrefix="DC=a1.companyNN.com">
+        <xn:SubNetwork id="1">
+            <xn:attributes>
+                <xn:userLabel>Paris SN1</xn:userLabel>
+                <xn:userDefinedNetworkType>UMTS</xn:userDefinedNetworkType>
+            </xn:attributes>
+            <xn:ManagementNode id="1">
+                <xn:attributes>
+                    <xn:userLabel>Paris MN1</xn:userLabel>
+                    <xn:vendorName>Company NN</xn:vendorName>
+                    <xn:userDefinedState>commercial</xn:userDefinedState>
+                    <xn:locationName>Montparnasse</xn:locationName>
+                </xn:attributes>
+            </xn:ManagementNode>
+            <xn:ManagedElement id="1">
+                <xn:attributes>
+                    <xn:managedElementType>RNC</xn:managedElementType>
+                    <xn:userLabel>Paris RN1</xn:userLabel>
+                    <xn:vendorName>Company NN</xn:vendorName>
+                    <xn:userDefinedState>commercial</xn:userDefinedState>
+                    <xn:locationName>Champ de Mars</xn:locationName>
+                </xn:attributes>
+            </xn:ManagedElement>
+            <xn:ManagedElement id="2">
+                <xn:attributes>
+                    <xn:managedElementType>RNC</xn:managedElementType>
+                    <xn:userLabel>Paris RN2</xn:userLabel>
+                    <xn:vendorName>Company NN</xn:vendorName>
+                    <xn:userDefinedState>commercial</xn:userDefinedState>
+                    <xn:locationName>Concorde</xn:locationName>
+                </xn:attributes>
+            </xn:ManagedElement>
+        </xn:SubNetwork>
+    </configData>
+</bulkCmConfigDataFile>

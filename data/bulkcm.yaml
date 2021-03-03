@@ -1,0 +1,8 @@
+encoding: utf-8
+format: xml
+hashing: md5
+name: bulkcm
+path: data/bulkcm.xml
+profile: data-resource
+schema: {}
+scheme: file
