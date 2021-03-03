@@ -161,3 +161,25 @@ def test_parse():
         assert list(reader) == [
             {"node_id": "1", "userLabel": "Paris SN1", "userDefinedNetworkType": "UMTS"}
         ]
+
+    metadata, nodes = bulkcm.to_csv("data/bulkcm_with_vsdatacontainer.xml", "data")
+
+    with open("data/SubNetwork.csv", newline="") as csv_file:
+        reader = csv.DictReader(csv_file)
+        assert reader.fieldnames == ["node_id"]
+        assert list(reader) == [{"node_id": "1"}]
+
+    with open("data/ManagedElement.csv", newline="") as csv_file:
+        reader = csv.DictReader(csv_file)
+        assert reader.fieldnames == ["node_id"]
+        assert list(reader) == [{"node_id": "1"}]
+
+    with open("data/RncFunction.csv", newline="") as csv_file:
+        reader = csv.DictReader(csv_file)
+        assert reader.fieldnames == ["node_id"]
+        assert list(reader) == [{"node_id": "1"}]
+
+    with open("data/RncHandOver.csv", newline="") as csv_file:
+        reader = csv.DictReader(csv_file)
+        assert reader.fieldnames == ["node_id", "abcMin", "abcMax"]
+        assert list(reader) == [{"node_id": "1", "abcMin": "12", "abcMax": "34"}]

@@ -28,4 +28,4 @@ lint:
 
 test:
 	make lint
-	pytest --cov ${PACKAGE} --cov-report term-missing --cov-fail-under 70
+	pytest --cov ${PACKAGE} --cov-report term-missing --cov-fail-under 80

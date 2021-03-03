@@ -25,6 +25,10 @@ class BulkCmParser:
         self._node_queue = []
         self._nodes = []
 
+        # vsData
+        self._is_vs_data = False
+        self._is_previous_format_version = False
+
     def start(self, tag, attrib):
         # remove the namespace from the tag
         # tag = {http://www.3gpp.org/ftp/specs/archive/32_series/32.615#configData1}configData
@@ -34,6 +38,12 @@ class BulkCmParser:
         if tag_nons == "attributes":
             # <xn:attributes>
             self._is_attributes = True
+
+        elif tag_nons == "vsDataType":
+            pass
+
+        elif tag_nons == "vsDataFormatVersion":
+            pass
 
         elif tag_nons == "configData":
             # <configData dnPrefix="DC=a1.companyNN.com">
@@ -56,6 +66,9 @@ class BulkCmParser:
             )
             self._node_queue.append(tag_nons)
 
+            if tag_nons == "VsDataContainer":
+                self._is_vs_data = True
+
         else:
             self._node_queue.append(tag_nons)
 
@@ -70,6 +83,14 @@ class BulkCmParser:
 
             self._is_attributes = False
 
+        elif tag_nons == "vsDataType":
+            # replace the previous node_name
+            self._nodes[-1]["node_name"] = "".join(self._text)
+            self._text = []
+
+        elif tag_nons == "vsDataFormatVersion":
+            self._text = []
+
         elif tag_nons == "configData":
             pass
 
@@ -82,6 +103,12 @@ class BulkCmParser:
         elif tag_nons == "bulkCmConfigDataFile":
             pass
 
+        elif tag_nons == "VsDataContainer":
+            self._is_vs_data = False
+            vs_container = (self._nodes[-1]).popitem()
+            pprint(self._nodes[-1])
+            pprint(vs_container)
+
         else:
             node = self._node_queue.pop()
 
@@ -89,15 +116,11 @@ class BulkCmParser:
                 # inside <xn:attributes>, tag_nons is an attribute
                 node_value = "".join(self._text)
                 self._node_attributes[node] = node_value
-                self._text = []
 
-            else:
-                assert node == tag_nons  # this must be equal!!!
+            self._text = []
 
     def data(self, data):
-        data = data.strip()
-        if len(data) > 0:
-            self._text.append(data)
+        self._text.append(data.strip())
 
     def close(self):
         print("metadata")
@@ -106,9 +129,6 @@ class BulkCmParser:
         pprint(self._dnPrefix)
         print("nodes")
         pprint(self._nodes)
-
-        pprint(self._node_attributes)
-        pprint(self._text)
 
         return self._metadata, self._nodes
 
@@ -299,7 +319,7 @@ def probe(file_path: str):
     Parameters:
         file_path (str): file_path
     Returns:
-        config data (dict: cd
+        config data (dict): cd
     """
 
     print(f"\nProbing the BulkCm file: {file_path}")
@@ -353,11 +373,12 @@ if __name__ == "__main__":
     print(f"Argument List: {sys.argv}")
 
     file_path = sys.argv[1]
+    output_dir = sys.argv[2]
 
     #
     # Parse BulkCm file and place it's content in output directories CSV files
     #
-    to_csv(file_path, output_dir="data")
+    to_csv(file_path, output_dir)
 
     #
     # Simple probing of an BulkCm file

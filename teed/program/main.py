@@ -24,5 +24,5 @@ def version(value: bool):
 def program_main(
     version: Optional[bool] = typer.Option(None, "--version", callback=version)
 ):
-    """Probe and transform telco data."""
+    """Analyze and transform telco data."""
     pass
