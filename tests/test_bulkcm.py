@@ -181,5 +181,5 @@ def test_parse():
 
     with open("data/RncHandOver.csv", newline="") as csv_file:
         reader = csv.DictReader(csv_file)
-        assert reader.fieldnames == ["node_id", "abcMin", "abcMax"]
-        assert list(reader) == [{"node_id": "1", "abcMin": "12", "abcMax": "34"}]
+        assert reader.fieldnames == ["node_id", "vs_abcMin", "vs_abcMax"]
+        assert list(reader) == [{"node_id": "1", "vs_abcMin": "12", "vs_abcMax": "34"}]

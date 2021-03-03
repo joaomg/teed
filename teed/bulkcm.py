@@ -1,7 +1,8 @@
 #
 # python bulkcm.py data/bulkcm.xml
 # python teed/bulkcm.py data/bulkcm_with_header_footer.xml data
-#
+# python -m teed bulkcm-parse data/bulkcm_with_header_footer.xml data
+# python -m teed bulkcm-parse data/bulkcm_with_vsdatacontainer.xml data
 
 import sys
 from os import path
@@ -14,11 +15,16 @@ import csv
 class BulkCmParser:
     def __init__(self, output_dir: str):
 
-        self._output_dif = output_dir
+        # bulkcm general file data
         self._metadata = {}
+
+        # configData
         self._dnPrefix = None
 
+        # attributes
         self._is_attributes = False
+
+        # element text buffer
         self._text = []
 
         self._node_attributes = {}
@@ -112,10 +118,13 @@ class BulkCmParser:
         else:
             node = self._node_queue.pop()
 
-            if self._is_attributes:
+            if self._is_attributes and self._is_vs_data:
+                # inside <xn:VsDataContainer id="1"><xn:attributes>, tag_nons is an attribute
+                self._node_attributes[f"vs_{node}"] = "".join(self._text)
+
+            elif self._is_attributes:
                 # inside <xn:attributes>, tag_nons is an attribute
-                node_value = "".join(self._text)
-                self._node_attributes[node] = node_value
+                self._node_attributes[node] = "".join(self._text)
 
             self._text = []
 
