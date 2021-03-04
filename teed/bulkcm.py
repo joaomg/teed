@@ -1,10 +1,7 @@
 #
-# python bulkcm.py data/bulkcm.xml
-# python teed/bulkcm.py data/bulkcm_with_header_footer.xml data
 # python -m teed bulkcm-parse data/bulkcm_with_header_footer.xml data
 # python -m teed bulkcm-parse data/bulkcm_with_vsdatacontainer.xml data
 
-import sys
 from os import path
 from copy import deepcopy
 from pprint import pprint
@@ -214,8 +211,7 @@ def to_csv(file_path: str, output_dir: str):
 
 def split_by_subnetwork(file_path: str):
     """Split a BulkCm file by SubNetwork element
-    Yields a (subnetwork_id, ElementTree) tupple for each SubNetwork element found in the BulkCm path file.
-    The SubNetwork ElementTree's contains
+    Yields a (subnetwork_id, ElementTree) tupple for each SubNetwork element found in the BulkCm path file
 
     BulkCm XML format as described in ETSI TS 132 615
     https://www.etsi.org/deliver/etsi_ts/132600_132699/132615/09.02.00_60/ts_132615v090200p.pdf
@@ -373,29 +369,3 @@ def probe(file_path: str):
             print(f"\t#ManagedElement: {me_count}")
 
     return cd
-
-
-if __name__ == "__main__":
-
-    print(f"\nExecuting {sys.argv[0]}")
-    print(f"Number of arguments: {len(sys.argv)} arguments")
-    print(f"Argument List: {sys.argv}")
-
-    file_path = sys.argv[1]
-    output_dir = sys.argv[2]
-
-    #
-    # Parse BulkCm file and place it's content in output directories CSV files
-    #
-    to_csv(file_path, output_dir)
-
-    #
-    # Simple probing of an BulkCm file
-    #
-    # probe(file_path)
-
-    #
-    # Split each SubNetwork to a distinct lxml.etreeElementTree
-    #
-    # dir_name = path.dirname(file_path)
-    # split_by_subnetwork_to_file(file_path, dir_name)

@@ -1,5 +1,5 @@
 from typer.testing import CliRunner
-from teed import program
+from teed.__main__ import program
 
 runner = CliRunner()
 
