@@ -28,14 +28,11 @@ TESTS_REQUIRE = [
 EXTRAS_REQUIRE = {
     "dev": TESTS_REQUIRE,
 }
-INSTALL_REQUIRES = [
-    "frictionless>=4.0.5",
-    "lxml>=4.6.2",
-]
+INSTALL_REQUIRES = ["lxml>=4.6.2", "typer>=0.3.2"]
 README = read("README.md")
 VERSION = read(PACKAGE, "assets", "VERSION")
 PACKAGES = find_packages(exclude=["tests"])
-# ENTRY_POINTS = {"console_scripts": ["teed = teed.__main__:program"]}
+ENTRY_POINTS = {"console_scripts": ["teed = teed.__main__:program"]}
 
 
 # Run
@@ -49,11 +46,11 @@ setup(
     install_requires=INSTALL_REQUIRES,
     tests_require=TESTS_REQUIRE,
     extras_require=EXTRAS_REQUIRE,
-    # entry_points=ENTRY_POINTS,
+    entry_points=ENTRY_POINTS,
     zip_safe=False,
     long_description=README,
     long_description_content_type="text/markdown",
-    description="Frictionless is a framework to describe, extract, validate, and transform tabular data",
+    description="",
     author="joaomg",
     author_email="joaomg@gmail.com",
     url="https://github.com/joaomg/teed",
@@ -72,8 +69,6 @@ setup(
         "Intended Audience :: Developers",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],

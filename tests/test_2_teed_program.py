@@ -5,7 +5,7 @@ from teed import __version__
 runner = CliRunner()
 
 
-def test_bulkcm_probe_program():
+def test_teed_program():
     result = runner.invoke(program, "--version")
     assert result.exit_code == 0
     assert result.stdout.count(__version__)

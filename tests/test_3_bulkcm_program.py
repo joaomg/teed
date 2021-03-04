@@ -1,5 +1,5 @@
 from typer.testing import CliRunner
-from teed.__main__ import program
+from teed.bulkcm import program
 
 runner = CliRunner()
 
@@ -9,9 +9,9 @@ runner = CliRunner()
 
 # @pytest.mark.skipif(helpers.is_platform("windows"), reason="It doesn't work for Windows")
 def test_bulkcm_probe_program():
-    result = runner.invoke(program, "bulkcm-probe data/bulkcm.xml")
+    result = runner.invoke(program, "probe data/bulkcm.xml")
     assert result.exit_code == 0
-    assert result.stdout.count("Probing the BulkCm file: data/bulkcm.xml")
+    assert result.stdout.count("Probing data/bulkcm.xml")
     assert result.stdout.count(
         "configData, distinguished name prefix: DC=a1.companyNN.com"
     )
@@ -20,5 +20,6 @@ def test_bulkcm_probe_program():
 
 
 def test_bulkcm_parse_program():
-    result = runner.invoke(program, "bulkcm-parse data/bulkcm.xml data")
+    result = runner.invoke(program, "parse data/bulkcm.xml data")
     assert result.exit_code == 0
+    assert result.stdout.count("Parsing data/bulkcm.xml")

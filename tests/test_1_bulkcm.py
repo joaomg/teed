@@ -59,11 +59,11 @@ def test_split_by_subnetwork_to_file():
 def test_parse():
     """ Test bulkcm.parse """
 
-    bulkcm.to_csv("data/bulkcm.xml", "data")
-    bulkcm.to_csv("data/bulkcm_empty.xml", "data")
-    bulkcm.to_csv("data/bulkcm_no_configData.xml", "data")
+    bulkcm.parse("data/bulkcm.xml", "data")
+    bulkcm.parse("data/bulkcm_empty.xml", "data")
+    bulkcm.parse("data/bulkcm_no_configData.xml", "data")
 
-    metadata, nodes = bulkcm.to_csv("data/bulkcm_with_header_footer.xml", "data")
+    metadata, nodes = bulkcm.parse("data/bulkcm_with_header_footer.xml", "data")
 
     assert metadata == {
         "dateTime": "2001-05-07T12:00:00+02:00",
@@ -162,7 +162,7 @@ def test_parse():
             {"node_id": "1", "userLabel": "Paris SN1", "userDefinedNetworkType": "UMTS"}
         ]
 
-    metadata, nodes = bulkcm.to_csv("data/bulkcm_with_vsdatacontainer.xml", "data")
+    metadata, nodes = bulkcm.parse("data/bulkcm_with_vsdatacontainer.xml", "data")
 
     with open("data/SubNetwork.csv", newline="") as csv_file:
         reader = csv.DictReader(csv_file)

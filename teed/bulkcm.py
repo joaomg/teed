@@ -1,15 +1,23 @@
 #
-# python -m teed bulkcm-parse data/bulkcm_with_header_footer.xml data
-# python -m teed bulkcm-parse data/bulkcm_with_vsdatacontainer.xml data
+# python -m teed bulkcm parse data/bulkcm_empty.xml data
+# python -m teed bulkcm parse data/bulkcm_with_header_footer.xml data
+# python -m teed bulkcm parse data/bulkcm_with_vsdatacontainer.xml data
+# python -m teed bulkcm probe data/bulkcm_with_vsdatacontainer.xml
 
 from os import path
 from copy import deepcopy
 from pprint import pprint
 from lxml import etree
+from datetime import datetime
 import csv
+import typer
+
+program = typer.Typer()
 
 
 class BulkCmParser:
+    """ The parser target object that receives the etree parse events """
+
     def __init__(self, output_dir: str):
 
         # bulkcm general file data
@@ -108,9 +116,15 @@ class BulkCmParser:
 
         elif tag_nons == "VsDataContainer":
             self._is_vs_data = False
-            vs_container = (self._nodes[-1]).popitem()
-            pprint(self._nodes[-1])
-            pprint(vs_container)
+
+            # the last attribute of the previous node
+            # is a place-holder, it's redundant.
+            # Remove it.
+            # vs_container =
+            (self._nodes[-1]).popitem()
+
+            # print(self._nodes[-1])
+            # print(vs_container)
 
         else:
             node = self._node_queue.pop()
@@ -129,59 +143,66 @@ class BulkCmParser:
         self._text.append(data.strip())
 
     def close(self):
-        print("metadata")
-        pprint(self._metadata)
-        print("dnPrefix")
-        pprint(self._dnPrefix)
-        print("nodes")
-        pprint(self._nodes)
+        # print("metadata")
+        # pprint(self._metadata)
+        # print("dnPrefix")
+        # pprint(self._dnPrefix)
+        # print("nodes")
+        # pprint(self._nodes)
 
         return self._metadata, self._nodes
 
+    def nodes_to_csv(cls, nodes, output_dir):
+        """A naive, iterative-approach, serialization of nodes to csv files
 
-def nodes_to_csv(nodes, output_dir):
-    """A naive, iterative-approach, serialization of nodes to csv files
+        @@@ to be changes to producer/consumer using asyncio.Queue
+        @@@ https://pymotw.com/3/asyncio/synchronization.html#queues
 
-    @@@ to be changes to producer/consumer using asyncio.Queue
-    @@@ https://pymotw.com/3/asyncio/synchronization.html#queues
+        Parameters:
+            node list of disct (list(dict)): nodes
+            output directory (str): output_dir
+        """
 
-    Parameters:
-        node list of disct (list(dict)): nodes
-        output directory (str): output_dir
-    """
+        csv_file = None
+        writer = None
+        previous_node_name = ""
+        nodes = sorted(nodes, key=lambda k: k["node_name"])
+        for node in nodes:
+            node_name = node.pop("node_name")
 
-    csv_file = None
-    writer = None
-    previous_node_name = ""
-    nodes = sorted(nodes, key=lambda k: k["node_name"])
-    for node in nodes:
-        node_name = node.pop("node_name")
+            if previous_node_name != node_name:
 
-        if previous_node_name != node_name:
+                # flush and close previous csv_file
+                if writer is not None:
+                    csv_file.flush()
+                    csv_file.close()
 
-            # flush and close previous csv_file
-            if writer is not None:
-                csv_file.flush()
-                csv_file.close()
+                # create new file
+                # using mode w truncate existing files
+                csv_path = f"{output_dir}{path.sep}{node_name}.csv"
+                csv_file = open(csv_path, mode="w", newline="")
 
-            # create new file
-            # using mode w truncate existing files
-            csv_path = f"{output_dir}{path.sep}{node_name}.csv"
-            csv_file = open(csv_path, mode="w", newline="")
+                print(f'Created {csv_path}')
 
-            attributes = node.keys()
-            writer = csv.DictWriter(csv_file, fieldnames=attributes)
-            writer.writeheader()
-            writer.writerow(node)
-        else:
-            # write node to the current writer
-            writer.writerow(node)
+                attributes = node.keys()
+                writer = csv.DictWriter(csv_file, fieldnames=attributes)
+                writer.writeheader()
+                writer.writerow(node)
+            else:
+                # write node to the current writer
+                writer.writerow(node)
 
-        previous_node_name = node_name
+            previous_node_name = node_name
 
 
-def to_csv(file_path: str, output_dir: str):
+@program.command()
+def parse(file_path: str, output_dir: str):
     """ Parse BulkCm file and place it's content in output directories CSV files """
+
+    print(f"Parsing {file_path}")
+    if not (path.exists(file_path)):
+        typer.secho(f"Error, {file_path} doesn't exists", fg=typer.colors.RED, bold=True)
+        typer.Exit(1)
 
     target_parser = BulkCmParser(output_dir)
     parser = etree.XMLParser(
@@ -196,17 +217,24 @@ def to_csv(file_path: str, output_dir: str):
     )
 
     try:
+        start = datetime.now()
+
         # parse the BulkCm file
         metadata, nodes = etree.parse(file_path, parser)
 
         # output the nodes list(dict) to the directory
-        nodes_to_csv(deepcopy(nodes), output_dir)
+        target_parser.nodes_to_csv(deepcopy(nodes), output_dir)
 
-        return metadata, nodes
+        finish = datetime.now()
 
-    except etree.XMLSyntaxError as e:
-        print(f"Error parsing {file_path}")
-        print(e)
+        print(f'Time: {finish - start}')
+
+        return metadata, nodes, finish - start
+
+    except Exception as exception:
+        typer.secho(f"Error parsing {file_path}", fg=typer.colors.RED, bold=True)
+        typer.secho(str(exception), err=True, fg=typer.colors.RED, bold=True)
+        typer.Exit(1)
 
 
 def split_by_subnetwork(file_path: str):
@@ -276,6 +304,7 @@ def split_by_subnetwork(file_path: str):
         yield (sn_id, new_tree)
 
 
+@program.command()
 def split_by_subnetwork_to_file(file_path: str, output_dir: str = "."):
     """Split a BulkCm file by SubNetwork element
     using the split_by_subnetwork function.
@@ -313,6 +342,7 @@ def split_by_subnetwork_to_file(file_path: str, output_dir: str = "."):
     print(f"\n#SubNetwork found: #{sn_count}")
 
 
+@program.command()
 def probe(file_path: str):
     """Probe a BulkCm file
 
@@ -323,17 +353,21 @@ def probe(file_path: str):
 
     Parameters:
         file_path (str): file_path
+
     Returns:
         config data (dict): cd
     """
 
-    print(f"\nProbing the BulkCm file: {file_path}")
+    print(f"Probing {file_path}")
+    if not (path.exists(file_path)):
+        typer.secho(f"Error, {file_path} doesn't exists", fg=typer.colors.RED, bold=True)
+        exit(1)
 
     try:
         parser = etree.XMLParser(remove_blank_text=True)
         tree = etree.parse(source=file_path, parser=parser)
     except etree.XMLSyntaxError as e:
-        print(e)
+        typer.secho(str(e), err=True, fg=typer.colors.RED, bold=True)
         exit(1)
 
     # bulkCmConfigDataFile
@@ -341,7 +375,7 @@ def probe(file_path: str):
     root = tree.getroot()
     nsmap = root.nsmap
 
-    print("\nNamespaces:")
+    print("\nNamespaces found:")
     pprint(nsmap, indent=3)
 
     c = tree.find("configData", namespaces=nsmap)
@@ -369,3 +403,7 @@ def probe(file_path: str):
             print(f"\t#ManagedElement: {me_count}")
 
     return cd
+
+
+if __name__ == "__main__":
+    program()
