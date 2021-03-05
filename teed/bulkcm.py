@@ -39,7 +39,7 @@ class BulkCmParser:
 
         # vsData
         self._is_vs_data = False
-        self._is_previous_format_version = False
+        self._vs_data_type = None
 
     def start(self, tag, attrib):
         # remove the namespace from the tag
@@ -52,7 +52,7 @@ class BulkCmParser:
             self._is_attributes = True
 
         elif tag_nons == "vsDataType":
-            pass
+            self._vs_data_type = None
 
         elif tag_nons == "vsDataFormatVersion":
             pass
@@ -97,7 +97,9 @@ class BulkCmParser:
 
         elif tag_nons == "vsDataType":
             # replace the previous node_name
-            self._nodes[-1]["node_name"] = "".join(self._text)
+            vs_data_type = "".join(self._text)
+            self._vs_data_type = vs_data_type
+            self._nodes[-1]["node_name"] = vs_data_type
             self._text = []
 
         elif tag_nons == "vsDataFormatVersion":
@@ -117,22 +119,15 @@ class BulkCmParser:
 
         elif tag_nons == "VsDataContainer":
             self._is_vs_data = False
-
-            # the last attribute of the previous node
-            # is a place-holder, it's redundant.
-            # Remove it.
-            # vs_container =
-            (self._nodes[-1]).popitem()
-
-            # print(self._nodes[-1])
-            # print(vs_container)
+            self._vs_data_type = None
 
         else:
             node = self._node_queue.pop()
 
-            if self._is_attributes and self._is_vs_data:
-                # inside <xn:VsDataContainer id="1"><xn:attributes>, tag_nons is an attribute
-                self._node_attributes[f"vs_{node}"] = "".join(self._text)
+            if tag_nons == self._vs_data_type:
+                # it's an enclosing element, ignore it
+                # </un:vsDataRHO>
+                pass
 
             elif self._is_attributes:
                 # inside <xn:attributes>, tag_nons is an attribute

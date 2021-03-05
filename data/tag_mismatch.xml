@@ -9,11 +9,11 @@
                 <un:RncFunction id="1">
                     <xn:VsDataContainer id="1">
                         <xn:attributes>
-                            <xn:vsDataType>RncHandOver</xn:vsDataType>
+                            <xn:vsDataType>vsDataRncHandOver</xn:vsDataType>
                             <xn:vsDataFormatVersion>NNRncHandOver.1.1</xn:vsDataFormatVersion>
-                            <vsRHO11:vsDataRHO>
+                            <vsRHO11:vsDataRncHandOver>
                                 <vsRHO11:abx>34</vsRHO11:abcMax>
-                            </vsRHO11:vsDataRHO>
+                            </vsRHO11:vsDataRncHandOver>
                         </xn:attributes>
                     </xn:VsDataContainer>
                 </un:RncFunction>
