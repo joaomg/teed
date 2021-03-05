@@ -191,3 +191,12 @@ def test_parse():
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == ["node_id", "vs_abcMin", "vs_abcMax"]
         assert list(reader) == [{"node_id": "1", "vs_abcMin": "12", "vs_abcMax": "34"}]
+
+    metadata, nodes, duration = bulkcm.parse("data/bulkcm_with_utrancell.xml", "data")
+
+    with open("data/UtranCell.csv", newline="") as csv_file:
+        reader = csv.DictReader(csv_file)
+        assert reader.fieldnames == ["node_id", "vs_sc", "vs_pcpichpower"]
+        assert list(reader) == [
+            {"node_id": "Cell1", "vs_sc": "111", "vs_pcpichpower": "222"}
+        ]
