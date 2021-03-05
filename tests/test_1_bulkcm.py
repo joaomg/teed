@@ -12,6 +12,12 @@ def test_probe():
         "dnPrefix": "DC=a1.companyNN.com",
     }
 
+    try:
+        cd = None
+        cd = bulkcm.probe("data/tag_mismatch.xml")
+    except Exception:
+        assert cd is None
+
 
 def test_split_by_subnetwork():
     """ Test bulkcm.split_by_subnetwork """
@@ -31,12 +37,12 @@ def test_split_by_subnetwork_to_file():
         pass
 
     # creating the new tests/bulkcm_SubNetwork_1.xml
-    for output_file_path in bulkcm.split_by_subnetwork_to_file(
+    for sn_id, sn_file_path in bulkcm.split_by_subnetwork_to_file(
         "data/bulkcm.xml", "tests"
     ):
 
         # check if tests/bulkcm_SubNetwork_1.xml exists
-        assert os.path.exists(output_file_path)
+        assert os.path.exists(sn_file_path)
 
     # compare contents with the input
     # they must be the same since there's
@@ -51,7 +57,7 @@ def test_split_by_subnetwork_to_file():
         recover=False,
     )
     source = etree.parse("data/bulkcm.xml", parser=parser)
-    target = etree.parse(output_file_path, parser=parser)
+    target = etree.parse(sn_file_path, parser=parser)
 
     assert etree.tostring(source) == etree.tostring(target)
 
@@ -60,10 +66,10 @@ def test_parse():
     """ Test bulkcm.parse """
 
     bulkcm.parse("data/bulkcm.xml", "data")
-    bulkcm.parse("data/bulkcm_empty.xml", "data")
+    # bulkcm.parse("data/bulkcm_empty.xml", "data")
     bulkcm.parse("data/bulkcm_no_configData.xml", "data")
 
-    metadata, nodes = bulkcm.parse("data/bulkcm_with_header_footer.xml", "data")
+    metadata, nodes, duration = bulkcm.parse("data/bulkcm_with_header_footer.xml", "data")
 
     assert metadata == {
         "dateTime": "2001-05-07T12:00:00+02:00",
@@ -162,7 +168,9 @@ def test_parse():
             {"node_id": "1", "userLabel": "Paris SN1", "userDefinedNetworkType": "UMTS"}
         ]
 
-    metadata, nodes = bulkcm.parse("data/bulkcm_with_vsdatacontainer.xml", "data")
+    metadata, nodes, duration = bulkcm.parse(
+        "data/bulkcm_with_vsdatacontainer.xml", "data"
+    )
 
     with open("data/SubNetwork.csv", newline="") as csv_file:
         reader = csv.DictReader(csv_file)

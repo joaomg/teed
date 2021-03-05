@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<bulkCmConfigDataFile xmlns="http://www.3gpp.org/ftp/specs/archive/32_series/32.615#configData"
+    xmlns:xn="http://www.3gpp.org/ftp/specs/archive/32_series/32.625#genericNrm"
+    xmlns:un="http://www.3gpp.org/ftp/specs/archive/32_series/32.645#utranNrm"
+    xmlns:vsRHO11="http://www.companyNN.com/xmlschemas/NNRncHandOver.1.1">
+    <configData dnPrefix="DC=a1.companyNN.com">
+        <xn:SubNetwork id="1">
+            <xn:ManagedElement id="1">
+                <un:RncFunction id="1">
+                    <xn:VsDataContainer id="1">
+                        <xn:attributes>
+                            <xn:vsDataType>RncHandOver</xn:vsDataType>
+                            <xn:vsDataFormatVersion>NNRncHandOver.1.1</xn:vsDataFormatVersion>
+                            <vsRHO11:vsDataRHO>
+                                <vsRHO11:abx>34</vsRHO11:abcMax>
+                            </vsRHO11:vsDataRHO>
+                        </xn:attributes>
+                    </xn:VsDataContainer>
+                </un:RncFunction>
+            </xn:ManagedElement>
+        </xn:SubNetwork>
+    </configData>
+</bulkCmConfigDataFile>

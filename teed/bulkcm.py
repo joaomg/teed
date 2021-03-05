@@ -9,6 +9,7 @@ from copy import deepcopy
 from pprint import pprint
 from lxml import etree
 from datetime import datetime
+from typing import Generator
 import csv
 import typer
 
@@ -152,7 +153,7 @@ class BulkCmParser:
 
         return self._metadata, self._nodes
 
-    def nodes_to_csv(cls, nodes, output_dir):
+    def nodes_to_csv(cls, nodes: list, output_dir: str) -> None:
         """A naive, iterative-approach, serialization of nodes to csv files
 
         @@@ to be changes to producer/consumer using asyncio.Queue
@@ -182,7 +183,7 @@ class BulkCmParser:
                 csv_path = f"{output_dir}{path.sep}{node_name}.csv"
                 csv_file = open(csv_path, mode="w", newline="")
 
-                print(f'Created {csv_path}')
+                print(f"Created {csv_path}")
 
                 attributes = node.keys()
                 writer = csv.DictWriter(csv_file, fieldnames=attributes)
@@ -195,9 +196,16 @@ class BulkCmParser:
             previous_node_name = node_name
 
 
-@program.command()
-def parse(file_path: str, output_dir: str):
-    """ Parse BulkCm file and place it's content in output directories CSV files """
+def parse(file_path: str, output_dir: str) -> tuple:
+    """Parse BulkCm file and place it's content in output directories CSV files
+
+    Parameters:
+        bulkcm file path (str): file_path
+        output directory (str): output_dir
+
+    Returns:
+        bulkcm metadata, nodes and parsing duration (dict, [dict], timedelta): (metadata, nodes, duration)
+    """
 
     print(f"Parsing {file_path}")
     if not (path.exists(file_path)):
@@ -216,28 +224,45 @@ def parse(file_path: str, output_dir: str):
         recover=False,
     )
 
-    try:
-        start = datetime.now()
+    start = datetime.now()
 
+    try:
         # parse the BulkCm file
         metadata, nodes = etree.parse(file_path, parser)
+    except Exception as e:
+        raise e
+        # typer.secho(f"Error parsing {file_path}", fg=typer.colors.RED, bold=True)
+        # typer.secho(str(exception), err=True, fg=typer.colors.RED, bold=True)
 
-        # output the nodes list(dict) to the directory
-        target_parser.nodes_to_csv(deepcopy(nodes), output_dir)
+    # output the nodes list(dict) to the directory
+    target_parser.nodes_to_csv(deepcopy(nodes), output_dir)
 
-        finish = datetime.now()
+    finish = datetime.now()
 
-        print(f'Time: {finish - start}')
-
-        return metadata, nodes, finish - start
-
-    except Exception as exception:
-        typer.secho(f"Error parsing {file_path}", fg=typer.colors.RED, bold=True)
-        typer.secho(str(exception), err=True, fg=typer.colors.RED, bold=True)
-        typer.Exit(1)
+    return (metadata, nodes, finish - start)
 
 
-def split_by_subnetwork(file_path: str):
+@program.command(name="parse")
+def parse_program(file_path: str, output_dir: str) -> None:
+    """Parse BulkCm file and place it's content in output directories CSV files
+
+    Command-line program for bulkcm.parse function
+
+    Parameters:
+        bulkcm file path (str): file_path
+        output directory (str): output_dir
+    """
+
+    try:
+        metadata, nodes, duration = parse(file_path, output_dir)
+        print(f"Duration: {duration}")
+    except Exception as e:
+        typer.secho(f"Error parsing {file_path}")
+        typer.secho(str(e), err=True, fg=typer.colors.RED, bold=True)
+        exit(1)
+
+
+def split_by_subnetwork(file_path: str) -> Generator[tuple, None, None]:
     """Split a BulkCm file by SubNetwork element
     Yields a (subnetwork_id, ElementTree) tupple for each SubNetwork element found in the BulkCm path file
 
@@ -248,7 +273,7 @@ def split_by_subnetwork(file_path: str):
         file_path (str): file_path
 
     Yields:
-        gen(subnetwork_id, ElementTree): list stream
+        Tuple with the SubNetwork id and it's ElementTree: generator(sn_id, sn_tree)
     """
 
     print(f"\nSpliting the BulkCm file by SubNetwork: {file_path}")
@@ -265,16 +290,14 @@ def split_by_subnetwork(file_path: str):
         )
         tree = etree.parse(source=file_path, parser=parser)
     except etree.XMLSyntaxError as e:
-        print(e)
-        exit(1)
+        raise e
 
     root = tree.getroot()
     nsmap = root.nsmap
 
     cd = root.find("./configData", namespaces=nsmap)
     if cd is None:
-        print("Error, file doesn't have a configData element.")
-        exit(1)
+        raise Exception("Error, file doesn't have a configData element")
 
     h = root.find("./header", namespaces=nsmap)
     f = root.find("./footer", namespaces=nsmap)
@@ -282,48 +305,50 @@ def split_by_subnetwork(file_path: str):
     for sn in cd.iterfind("./xn:SubNetwork", namespaces=nsmap):
         sn_id = sn.get("id")
 
-        new_bulkcm = etree.Element(root.tag, attrib=root.attrib, nsmap=nsmap)
-        new_cd = etree.Element(cd.tag, attrib=cd.attrib, nsmap=nsmap)
+        sn_bulkcm = etree.Element(root.tag, attrib=root.attrib, nsmap=nsmap)
+        sn_cd = etree.Element(cd.tag, attrib=cd.attrib, nsmap=nsmap)
 
         # header is optional
         if h is not None:
-            new_bulkcm.append(deepcopy(h))
+            sn_bulkcm.append(deepcopy(h))
 
         # configData is mandatory
-        new_bulkcm.append(new_cd)
+        sn_bulkcm.append(sn_cd)
 
         # SubNetwork
-        new_cd.append(sn)
+        sn_cd.append(sn)
 
         # footer is optional
         if f is not None:
-            new_bulkcm.append(deepcopy(f))
+            sn_bulkcm.append(deepcopy(f))
 
-        new_tree = etree.ElementTree(new_bulkcm)
+        # a valid BulkCm ElementTree
+        # with the SubNetwork
+        sn_tree = etree.ElementTree(sn_bulkcm)
 
-        yield (sn_id, new_tree)
+        yield (sn_id, sn_tree)
 
 
-@program.command()
-def split_by_subnetwork_to_file(file_path: str, output_dir: str = "."):
+def split_by_subnetwork_to_file(
+    file_path: str, output_dir: str
+) -> Generator[tuple, None, None]:
     """Split a BulkCm file by SubNetwork element
     using the split_by_subnetwork function.
 
     Write the SubNetwork(s) ElementTree to new file(s).
 
     Parameters:
-        file_path (str): file_path
+        bulkcm file path (str): file_path
+        output directory (str): output_dir
 
     Yields:
-        gen(file_path): list stream
+        Tuple with the SubNetwork id and file path: generator(sn_id, sn_file_path)
     """
 
     file_name = path.basename(file_path)
     file_name_without_ext = file_name.split(".")[0]
     file_ext = file_name.split(".")[1]
-    # dir_name = path.dirname(file_path)
 
-    sn_count = 0
     for sn_id, sn in split_by_subnetwork(file_path):
         sn_file_path = path.normpath(
             f"{output_dir}{path.sep}{file_name_without_ext}_SubNetwork_{sn_id}.{file_ext}"
@@ -334,16 +359,36 @@ def split_by_subnetwork_to_file(file_path: str, output_dir: str = "."):
             xml_declaration=True,
         )
 
-        print(f"\nSubNetwork {sn_id} to {sn_file_path}")
-        sn_count = +1
-
-        yield file_path
-
-    print(f"\n#SubNetwork found: #{sn_count}")
+        yield (sn_id, sn_file_path)
 
 
-@program.command()
-def probe(file_path: str):
+@program.command(name="split")
+def split_program(file_path: str, output_dir: str) -> None:
+    """Split a BulkCm file by SubNetwork element
+    using the split_by_subnetwork function.
+
+    Write the SubNetwork(s) ElementTree to new file(s).
+
+    Command-line program for bulkcm.split function
+
+    Parameters:
+        bulkcm file path (str): file_path
+        output directory (str): output_dir
+    """
+
+    try:
+        sn_count = 0
+        for sn_id, sn_file_path in split_by_subnetwork_to_file(file_path, output_dir):
+            print(f"\nSubNetwork {sn_id} to {sn_file_path}")
+            sn_count = +1
+
+        print(f"\n#SubNetwork found: #{sn_count}")
+    except Exception as e:
+        typer.secho(str(e), err=True, fg=typer.colors.RED, bold=True)
+        exit(1)
+
+
+def probe(file_path: str) -> dict:
     """Probe a BulkCm file
 
     BulkCm XML format as described in ETSI TS 132 615
@@ -360,15 +405,13 @@ def probe(file_path: str):
 
     print(f"Probing {file_path}")
     if not (path.exists(file_path)):
-        typer.secho(f"Error, {file_path} doesn't exists", fg=typer.colors.RED, bold=True)
-        exit(1)
+        raise Exception(f"Error, {file_path} doesn't exists")
 
     try:
         parser = etree.XMLParser(remove_blank_text=True)
         tree = etree.parse(source=file_path, parser=parser)
     except etree.XMLSyntaxError as e:
-        typer.secho(str(e), err=True, fg=typer.colors.RED, bold=True)
-        exit(1)
+        raise e
 
     # bulkCmConfigDataFile
     # fetch the namespaces mapping from bulkCmConfigDataFile root
@@ -381,7 +424,7 @@ def probe(file_path: str):
     c = tree.find("configData", namespaces=nsmap)
     if c is None:
         print("Error, file doesn't have a configData element.")
-        exit(1)
+        return None
 
     for c in tree.iterfind(".//configData", namespaces=nsmap):
         dnPrefix = c.get("dnPrefix")
@@ -403,6 +446,33 @@ def probe(file_path: str):
             print(f"\t#ManagedElement: {me_count}")
 
     return cd
+
+
+@program.command(name="probe")
+def probe_program(file_path: str) -> None:
+    """Probe a BulkCm file
+
+    BulkCm XML format as described in ETSI TS 132 615
+    https://www.etsi.org/deliver/etsi_ts/132600_132699/132615/09.02.00_60/ts_132615v090200p.pdf
+
+    Prints to console the namespaces, SubNetwork and number of ManagedElement
+
+    Command-line program for bulkcm.probe function
+
+    Parameters:
+        file_path (str): file_path
+    """
+
+    try:
+        cd = probe(file_path)
+        if cd is None:
+            # the configData dict return by probe
+            # can't be empty, otherwise it's an
+            # invalid BulkCm file
+            exit(1)
+    except Exception as e:
+        typer.secho(str(e), err=True, fg=typer.colors.RED, bold=True)
+        exit(1)
 
 
 if __name__ == "__main__":
