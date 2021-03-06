@@ -66,7 +66,12 @@ def test_parse():
     """ Test bulkcm.parse """
 
     bulkcm.parse("data/bulkcm.xml", "data")
-    # bulkcm.parse("data/bulkcm_empty.xml", "data")
+
+    try:
+        bulkcm.parse("data/bulkcm_empty.xml", "data")
+    except Exception as e:
+        assert str(e) == "Document is empty, line 1, column 1 (bulkcm_empty.xml, line 1)"
+
     bulkcm.parse("data/bulkcm_no_configData.xml", "data")
 
     metadata, nodes, duration = bulkcm.parse("data/bulkcm_with_header_footer.xml", "data")

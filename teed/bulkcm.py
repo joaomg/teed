@@ -226,8 +226,6 @@ def parse(file_path: str, output_dir: str) -> tuple:
         metadata, nodes = etree.parse(file_path, parser)
     except Exception as e:
         raise e
-        # typer.secho(f"Error parsing {file_path}", fg=typer.colors.RED, bold=True)
-        # typer.secho(str(exception), err=True, fg=typer.colors.RED, bold=True)
 
     # output the nodes list(dict) to the directory
     target_parser.nodes_to_csv(deepcopy(nodes), output_dir)
