@@ -327,6 +327,8 @@ def split_by_subnetwork(file_path: str) -> Generator[tuple, None, None]:
 
         yield (sn_id, sn_tree)
 
+        sn = None
+
 
 def split_by_subnetwork_to_file(
     file_path: str, output_dir: str
@@ -414,8 +416,45 @@ def probe(file_path: str) -> dict:
     if not (path.exists(file_path)):
         raise TeedException(f"Error, {file_path} doesn't exists")
 
+    for event, element in etree.iterparse(
+        file_path,
+        tag=(
+            "{*}bulkCmConfigDataFile",
+            "{*}fileHeader",
+            "{*}configData",
+            "{*}SubNetwork",
+            "{*}MeContext",
+            "{*}ManagedElement",
+            "{*}fileFooter",
+        ),
+        events=(
+            "start",
+            "end",
+        ),
+        no_network=True,
+        remove_blank_text=True,
+        remove_comments=True,
+        remove_pis=True,
+        huge_tree=True,
+        recover=False,
+    ):
+        print(f"{event}, {element.tag}, {element.text}")
+
+        element.clear(keep_tail=True)
+
+    return {}
+
+    """
     try:
-        parser = etree.XMLParser(remove_blank_text=True)
+        parser = etree.XMLParser(
+            no_network=True,
+            ns_clean=True,
+            remove_blank_text=True,
+            remove_comments=True,
+            remove_pis=True,
+            huge_tree=True,
+            recover=False,
+        )
         tree = etree.parse(source=file_path, parser=parser)
     except etree.XMLSyntaxError as e:
         raise TeedException(e)
@@ -452,6 +491,7 @@ def probe(file_path: str) -> dict:
             print(f"\t#ManagedElement: {me_count}")
 
     return cd
+    """
 
 
 @program.command(name="probe")
