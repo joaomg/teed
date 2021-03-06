@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Generator
 import csv
 import typer
+from teed import TeedException
 
 program = typer.Typer()
 
@@ -204,8 +205,7 @@ def parse(file_path: str, output_dir: str) -> tuple:
 
     print(f"Parsing {file_path}")
     if not (path.exists(file_path)):
-        typer.secho(f"Error, {file_path} doesn't exists", fg=typer.colors.RED, bold=True)
-        typer.Exit(1)
+        raise TeedException(f"Error, {file_path} doesn't exists")
 
     target_parser = BulkCmParser(output_dir)
     parser = etree.XMLParser(
@@ -224,8 +224,8 @@ def parse(file_path: str, output_dir: str) -> tuple:
     try:
         # parse the BulkCm file
         metadata, nodes = etree.parse(file_path, parser)
-    except Exception as e:
-        raise e
+    except etree.XMLSyntaxError as e:
+        raise TeedException(e)
 
     # output the nodes list(dict) to the directory
     target_parser.nodes_to_csv(deepcopy(nodes), output_dir)
@@ -249,7 +249,7 @@ def parse_program(file_path: str, output_dir: str) -> None:
     try:
         metadata, nodes, duration = parse(file_path, output_dir)
         print(f"Duration: {duration}")
-    except Exception as e:
+    except TeedException as e:
         typer.secho(f"Error parsing {file_path}")
         typer.secho(str(e), err=True, fg=typer.colors.RED, bold=True)
         exit(1)
@@ -267,9 +267,15 @@ def split_by_subnetwork(file_path: str) -> Generator[tuple, None, None]:
 
     Yields:
         Tuple with the SubNetwork id and it's ElementTree: generator(sn_id, sn_tree)
+
+    Raise:
+        TeedException
     """
 
     print(f"\nSpliting the BulkCm file by SubNetwork: {file_path}")
+
+    if not (path.exists(file_path)):
+        raise TeedException(f"Error, {file_path} doesn't exists")
 
     try:
         parser = etree.XMLParser(
@@ -283,14 +289,14 @@ def split_by_subnetwork(file_path: str) -> Generator[tuple, None, None]:
         )
         tree = etree.parse(source=file_path, parser=parser)
     except etree.XMLSyntaxError as e:
-        raise e
+        raise TeedException(e)
 
     root = tree.getroot()
     nsmap = root.nsmap
 
     cd = root.find("./configData", namespaces=nsmap)
     if cd is None:
-        raise Exception("Error, file doesn't have a configData element")
+        raise TeedException("Error, file doesn't have a configData element")
 
     h = root.find("./header", namespaces=nsmap)
     f = root.find("./footer", namespaces=nsmap)
@@ -336,6 +342,9 @@ def split_by_subnetwork_to_file(
 
     Yields:
         Tuple with the SubNetwork id and file path: generator(sn_id, sn_file_path)
+
+    Raise:
+        TeedException (inside the split_by_subnetwork call)
     """
 
     file_name = path.basename(file_path)
@@ -369,16 +378,18 @@ def split_program(file_path: str, output_dir: str) -> None:
         output directory (str): output_dir
     """
 
+    sn_count = 0
+
     try:
-        sn_count = 0
         for sn_id, sn_file_path in split_by_subnetwork_to_file(file_path, output_dir):
             print(f"\nSubNetwork {sn_id} to {sn_file_path}")
             sn_count = +1
 
-        print(f"\n#SubNetwork found: #{sn_count}")
-    except Exception as e:
+    except TeedException as e:
         typer.secho(str(e), err=True, fg=typer.colors.RED, bold=True)
         exit(1)
+
+    print(f"\n#SubNetwork found: #{sn_count}")
 
 
 def probe(file_path: str) -> dict:
@@ -394,17 +405,20 @@ def probe(file_path: str) -> dict:
 
     Returns:
         config data (dict): cd
+
+    Raise:
+        TeedException
     """
 
     print(f"Probing {file_path}")
     if not (path.exists(file_path)):
-        raise Exception(f"Error, {file_path} doesn't exists")
+        raise TeedException(f"Error, {file_path} doesn't exists")
 
     try:
         parser = etree.XMLParser(remove_blank_text=True)
         tree = etree.parse(source=file_path, parser=parser)
     except etree.XMLSyntaxError as e:
-        raise e
+        raise TeedException(e)
 
     # bulkCmConfigDataFile
     # fetch the namespaces mapping from bulkCmConfigDataFile root
@@ -416,8 +430,7 @@ def probe(file_path: str) -> dict:
 
     c = tree.find("configData", namespaces=nsmap)
     if c is None:
-        print("Error, file doesn't have a configData element.")
-        return None
+        raise TeedException("Error, file doesn't have a configData element")
 
     for c in tree.iterfind(".//configData", namespaces=nsmap):
         dnPrefix = c.get("dnPrefix")
@@ -463,7 +476,7 @@ def probe_program(file_path: str) -> None:
             # can't be empty, otherwise it's an
             # invalid BulkCm file
             exit(1)
-    except Exception as e:
+    except TeedException as e:
         typer.secho(str(e), err=True, fg=typer.colors.RED, bold=True)
         exit(1)
 

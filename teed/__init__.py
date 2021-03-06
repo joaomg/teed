@@ -5,6 +5,14 @@ import os
 import gzip
 import zipfile
 
+# Exception
+
+
+class TeedException(Exception):
+    """ General TeedException """
+
+    pass
+
 
 # Helpers
 
