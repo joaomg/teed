@@ -7,16 +7,6 @@
         <xn:SubNetwork id="1">
             <xn:ManagedElement id="1">
                 <un:RncFunction id="1">
-                    <xn:VsDataContainer id="1">
-                        <xn:attributes>
-                            <xn:vsDataType>vsDataRncHandOver</xn:vsDataType>
-                            <xn:vsDataFormatVersion>NNRncHandOver.1.1</xn:vsDataFormatVersion>
-                            <vsRHO11:vsDataRncHandOver>
-                                <vsRHO11:abcMin>12</vsRHO11:abcMin>
-                                <vsRHO11:abcMax>34</vsRHO11:abcMax>
-                            </vsRHO11:vsDataRncHandOver>
-                        </xn:attributes>
-                    </xn:VsDataContainer>
                     <xn:VsDataContainer id="Cell1">
                         <xn:attributes>
                             <xn:vsDataType>vsDataUtranCell</xn:vsDataType>
@@ -26,6 +16,16 @@
                                 <vsRHO11:pcpichpower>222</vsRHO11:pcpichpower>
                             </vsRHO11:vsDataUtranCell>
                         </xn:attributes>
+                        <xn:VsDataContainer id="1">
+                            <xn:attributes>
+                                <xn:vsDataType>vsDataRncHandOver</xn:vsDataType>
+                                <xn:vsDataFormatVersion>NNRncHandOver.1.1</xn:vsDataFormatVersion>
+                                <vsRHO11:vsDataRncHandOver>
+                                    <vsRHO11:abcMin>12</vsRHO11:abcMin>
+                                    <vsRHO11:abcMax>34</vsRHO11:abcMax>
+                                </vsRHO11:vsDataRncHandOver>
+                            </xn:attributes>
+                        </xn:VsDataContainer>
                     </xn:VsDataContainer>
                 </un:RncFunction>
             </xn:ManagedElement>

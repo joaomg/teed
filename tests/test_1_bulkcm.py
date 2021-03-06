@@ -198,3 +198,8 @@ def test_parse():
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == ["node_id", "sc", "pcpichpower"]
         assert list(reader) == [{"node_id": "Cell1", "sc": "111", "pcpichpower": "222"}]
+
+    with open("data/vsDataRncHandOver.csv", newline="") as csv_file:
+        reader = csv.DictReader(csv_file)
+        assert reader.fieldnames == ["node_id", "abcMin", "abcMax"]
+        assert list(reader) == [{"node_id": "1", "abcMin": "12", "abcMax": "34"}]
