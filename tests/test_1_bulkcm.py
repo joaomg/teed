@@ -8,8 +8,10 @@ def test_probe():
     """ Test bulkcm.probe """
 
     assert bulkcm.probe("data/bulkcm.xml") == {
-        "SubNetwork(s)": ["SubNetwork 1 counting #2 xn:ManagedElement"],
         "dnPrefix": "DC=a1.companyNN.com",
+        "SubNetwork(s)": [
+            "SubNetwork 1 with [('ManagementNode', 1), ('MeContext', 0), ('ManagedElement', 2)]"
+        ],
     }
 
     try:

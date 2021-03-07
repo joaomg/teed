@@ -6,7 +6,6 @@
 
 from os import path
 from copy import deepcopy
-from pprint import pprint
 from lxml import etree
 from datetime import datetime
 from typing import Generator
@@ -43,95 +42,95 @@ class BulkCmParser:
         self._vs_data_type = None
 
     def start(self, tag, attrib):
-        # remove the namespace from the tag
+        # flow-control using the element tag local name
         # tag = {http://www.3gpp.org/ftp/specs/archive/32_series/32.615#configData1}configData
-        # tag_nons = configData
-        tag_nons = tag.split("}")[-1]
+        # localname = configData
+        localname = etree.QName(tag).localname
 
-        if tag_nons == "attributes":
+        if localname == "attributes":
             # <xn:attributes>
             self._is_attributes = True
 
-        elif tag_nons == "vsDataType":
+        elif localname == "vsDataType":
             self._vs_data_type = None
 
-        elif tag_nons == "vsDataFormatVersion":
+        elif localname == "vsDataFormatVersion":
             pass
 
-        elif tag_nons == "configData":
+        elif localname == "configData":
             # <configData dnPrefix="DC=a1.companyNN.com">
             self._dnPrefix = attrib.get("dnPrefix")
 
-        elif tag_nons == "fileHeader":
+        elif localname == "fileHeader":
             # <fileHeader fileFormatVersion="32.615 V4.0" senderName="DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1" vendorName="Company NN" />
             self._metadata.update(attrib)
 
-        elif tag_nons == "fileFooter":
+        elif localname == "fileFooter":
             # <fileFooter dateTime="2001-05-07T12:00:00+02:00"/>
             self._metadata.update(attrib)
 
-        elif tag_nons == "bulkCmConfigDataFile":
+        elif localname == "bulkCmConfigDataFile":
             pass
 
         elif len(attrib) > 0:
             self._nodes.append(
-                {"node_id": attrib.get("id").strip(), "node_name": tag_nons}
+                {"node_id": attrib.get("id").strip(), "node_name": localname}
             )
-            self._node_queue.append(tag_nons)
+            self._node_queue.append(localname)
 
-            if tag_nons == "VsDataContainer":
+            if localname == "VsDataContainer":
                 self._is_vs_data = True
 
         else:
-            self._node_queue.append(tag_nons)
+            self._node_queue.append(localname)
 
     def end(self, tag):
-        tag_nons = tag.split("}")[-1]
+        localname = etree.QName(tag).localname
 
-        if tag_nons == "attributes":
+        if localname == "attributes":
             # </xn:attributes>
-            # not a attribute, tag_nons is a node
+            # not a attribute, localname is a node
             self._nodes[-1].update(self._node_attributes)
             self._node_attributes = {}
 
             self._is_attributes = False
 
-        elif tag_nons == "vsDataType":
+        elif localname == "vsDataType":
             # replace the previous node_name
             vs_data_type = "".join(self._text)
             self._vs_data_type = vs_data_type
             self._nodes[-1]["node_name"] = vs_data_type
             self._text = []
 
-        elif tag_nons == "vsDataFormatVersion":
+        elif localname == "vsDataFormatVersion":
             self._text = []
 
-        elif tag_nons == "configData":
+        elif localname == "configData":
             pass
 
-        elif tag_nons == "fileHeader":
+        elif localname == "fileHeader":
             pass
 
-        elif tag_nons == "fileFooter":
+        elif localname == "fileFooter":
             pass
 
-        elif tag_nons == "bulkCmConfigDataFile":
+        elif localname == "bulkCmConfigDataFile":
             pass
 
-        elif tag_nons == "VsDataContainer":
+        elif localname == "VsDataContainer":
             self._is_vs_data = False
             self._vs_data_type = None
 
         else:
             node = self._node_queue.pop()
 
-            if tag_nons == self._vs_data_type:
+            if localname == self._vs_data_type:
                 # it's an enclosing element, ignore it
                 # </un:vsDataRHO>
                 pass
 
             elif self._is_attributes:
-                # inside <xn:attributes>, tag_nons is an attribute
+                # inside <xn:attributes>, node is an attribute
                 self._node_attributes[node] = "".join(self._text)
 
             self._text = []
@@ -140,13 +139,6 @@ class BulkCmParser:
         self._text.append(data.strip())
 
     def close(self):
-        # print("metadata")
-        # pprint(self._metadata)
-        # print("dnPrefix")
-        # pprint(self._dnPrefix)
-        # print("nodes")
-        # pprint(self._nodes)
-
         return self._metadata, self._nodes
 
     def nodes_to_csv(cls, nodes: list, output_dir: str) -> None:
@@ -394,6 +386,13 @@ def split_program(file_path: str, output_dir: str) -> None:
     print(f"\n#SubNetwork found: #{sn_count}")
 
 
+def print_seq(items: list, indent: str = "\t") -> None:
+    """Print items in sequence using a indent"""
+
+    for item in items:
+        print(f"{indent}{item[0]}: {item[1]}")
+
+
 def probe(file_path: str) -> dict:
     """Probe a BulkCm file
 
@@ -416,33 +415,80 @@ def probe(file_path: str) -> dict:
     if not (path.exists(file_path)):
         raise TeedException(f"Error, {file_path} doesn't exists")
 
-    for event, element in etree.iterparse(
-        file_path,
-        tag=(
-            "{*}bulkCmConfigDataFile",
-            "{*}fileHeader",
-            "{*}configData",
-            "{*}SubNetwork",
-            "{*}MeContext",
-            "{*}ManagedElement",
-            "{*}fileFooter",
-        ),
-        events=(
-            "start",
-            "end",
-        ),
-        no_network=True,
-        remove_blank_text=True,
-        remove_comments=True,
-        remove_pis=True,
-        huge_tree=True,
-        recover=False,
-    ):
-        print(f"{event}, {element.tag}, {element.text}")
+    try:
 
-        element.clear(keep_tail=True)
+        tag_count = {"ManagementNode": 0, "MeContext": 0, "ManagedElement": 0}
+        for event, element in etree.iterparse(
+            file_path,
+            tag=(
+                "{*}bulkCmConfigDataFile",
+                "{*}fileHeader",
+                "{*}configData",
+                "{*}SubNetwork",
+                "{*}ManagementNode",
+                "{*}MeContext",
+                "{*}ManagedElement",
+                "{*}fileFooter",
+            ),
+            events=(
+                "start",
+                "end",
+            ),
+            no_network=True,
+            remove_blank_text=True,
+            remove_comments=True,
+            remove_pis=True,
+            huge_tree=True,
+            recover=False,
+        ):
 
-    return {}
+            localname = etree.QName(element.tag).localname
+
+            if event == "start" and localname in [
+                "ManagementNode",
+                "MeContext",
+                "ManagedElement",
+            ]:
+                tag_count[localname] += 1
+
+            elif event == "start" and localname == "bulkCmConfigDataFile":
+                print("\nbulkCmConfigDataFile")
+                print_seq(element.nsmap.items(), "\t")
+
+            elif event == "start" and localname == "configData":
+                print("configData")
+                print_seq(element.attrib.items(), "\t")
+
+                cd = deepcopy(element.attrib)
+                cd["SubNetwork(s)"] = []
+
+            elif event == "start" and localname == "SubNetwork":
+                print("\tSubNetwork")
+                print_seq(element.attrib.items(), "\t")
+
+                # SubNetwork id
+                sn_id = element.attrib.get("id")
+
+            elif event == "end" and localname == "SubNetwork":
+                print_seq(tag_count.items(), "\t\t")
+
+                sn_items = list(tag_count.items())
+                cd["SubNetwork(s)"].append(f"SubNetwork {sn_id} with {sn_items}")
+
+            elif event == "start" and localname == "fileHeader":
+                print("fileHeader")
+                print_seq(element.attrib.items(), "\t")
+
+            elif event == "start" and localname == "fileFooter":
+                print("fileFooter")
+                print_seq(element.attrib.items(), "\t")
+
+            element.clear(keep_tail=True)
+
+    except etree.XMLSyntaxError as e:
+        raise TeedException(e)
+
+    return cd
 
     """
     try:

@@ -11,11 +11,11 @@ def test_bulkcm_probe_program():
     result = runner.invoke(program, "probe data/bulkcm.xml")
     assert result.exit_code == 0
     assert result.stdout.count("Probing data/bulkcm.xml")
-    assert result.stdout.count(
-        "configData, distinguished name prefix: DC=a1.companyNN.com"
-    )
-    assert result.stdout.count("SubNetwork id: 1")
-    assert result.stdout.count("#ManagedElement: 2")
+    assert result.stdout.count("configData")
+    assert result.stdout.count("dnPrefix: DC=a1.companyNN.com")
+    assert result.stdout.count("SubNetwork")
+    assert result.stdout.count("id: 1")
+    assert result.stdout.count("ManagedElement: 2")
 
     # invalid xml file
     result = runner.invoke(program, "probe data/tag_mismatch.xml")
