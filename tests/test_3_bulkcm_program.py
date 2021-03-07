@@ -4,25 +4,28 @@ from teed.bulkcm import program
 runner = CliRunner()
 
 
-# @pytest.mark.skipif(helpers.is_platform("windows"), reason="It doesn't work for Windows")
 def test_bulkcm_probe_program():
 
     # valid bulkcm file
     result = runner.invoke(program, "probe data/bulkcm.xml")
     assert result.exit_code == 0
     assert result.stdout.count("Probing data/bulkcm.xml")
-    assert result.stdout.count("configData")
-    assert result.stdout.count("dnPrefix: DC=a1.companyNN.com")
-    assert result.stdout.count("SubNetwork")
-    assert result.stdout.count("id: 1")
-    assert result.stdout.count("ManagedElement: 2")
+
+    assert result.stdout.count(
+        """[{'dnPrefix': 'DC=a1.companyNN.com',
+  'SubNetwork(s)': [{'id': '1',
+                     'ManagementNode': 1,
+                     'MeContext': 0,
+                     'ManagedElement': 2}]}]"""
+    )
+    assert result.stdout.count("Duration: ")
 
     # invalid xml file
     result = runner.invoke(program, "probe data/tag_mismatch.xml")
     assert result.exit_code == 1
     assert result.stdout.count("Probing data/tag_mismatch.xml")
     assert result.stdout.count(
-        "Opening and ending tag mismatch: abx line 15 and abcMax, line 15, column 65 (tag_mismatch.xml, line 15)"
+        "Opening and ending tag mismatch: abx line 0 and abcMax, line 15, column 65 (tag_mismatch.xml, line 15)"
     )
 
 

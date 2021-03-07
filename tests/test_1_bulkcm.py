@@ -7,18 +7,28 @@ from teed import bulkcm
 def test_probe():
     """ Test bulkcm.probe """
 
-    assert bulkcm.probe("data/bulkcm.xml") == {
-        "dnPrefix": "DC=a1.companyNN.com",
-        "SubNetwork(s)": [
-            "SubNetwork 1 with [('ManagementNode', 1), ('MeContext', 0), ('ManagedElement', 2)]"
-        ],
-    }
+    assert bulkcm.probe("data/bulkcm.xml") == [
+        {
+            "dnPrefix": "DC=a1.companyNN.com",
+            "SubNetwork(s)": [
+                {"id": "1", "ManagementNode": 1, "MeContext": 0, "ManagedElement": 2}
+            ],
+        }
+    ]
 
     try:
-        cd = None
-        cd = bulkcm.probe("data/tag_mismatch.xml")
-    except Exception:
-        assert cd is None
+        outcome = []
+        outcome = bulkcm.probe("data/tag_mismatch.xml")
+    except Exception as e:
+        # check the outcome is still an empty list
+        assert outcome == []
+
+        # check the exception message
+        # signals an invalid XML doc
+        assert (
+            str(e)
+            == "Opening and ending tag mismatch: abx line 0 and abcMax, line 15, column 65 (tag_mismatch.xml, line 15)"
+        )
 
 
 def test_split_by_subnetwork():
