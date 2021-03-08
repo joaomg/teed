@@ -356,6 +356,8 @@ def split_by_subnetwork_to_file(
             xml_declaration=True,
         )
 
+        sn = None
+
         yield (sn_id, sn_file_path)
 
 
@@ -385,13 +387,6 @@ def split_program(file_path: str, output_dir: str) -> None:
         exit(1)
 
     print(f"\n#SubNetwork found: #{sn_count}")
-
-
-def print_seq(items: list, indent: str = "\t") -> None:
-    """Print items in sequence using a indent"""
-
-    for item in items:
-        print(f"{indent}{item[0]}: {item[1]}")
 
 
 def probe(file_path: str) -> dict:
