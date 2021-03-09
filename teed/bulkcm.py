@@ -414,12 +414,7 @@ def probe(file_path: str) -> dict:
             self._outcome = []
             self._cd = None
             self._sn = None
-            self._sn_tag_count = {
-                "id": None,
-                "ManagementNode": 0,
-                "MeContext": 0,
-                "ManagedElement": 0,
-            }
+            self._sn_queue = []
 
         def start(self, tag, attrib):
             localname = etree.QName(tag).localname
@@ -432,27 +427,29 @@ def probe(file_path: str) -> dict:
 
             elif localname == "SubNetwork":
                 sn_id = attrib.get("id")
-                self._sn_tag_count = {
+                sn_tag_count = {
                     "id": sn_id,
                     "ManagementNode": 0,
                     "MeContext": 0,
                     "ManagedElement": 0,
                 }
+                self._sn_queue.append(sn_tag_count)
 
             elif localname == "ManagementNode":
-                self._sn_tag_count["ManagementNode"] += 1
+                self._sn_queue[-1]["ManagementNode"] += 1
 
             elif localname == "MeContext":
-                self._sn_tag_count["MeContext"] += 1
+                self._sn_queue[-1]["MeContext"] += 1
 
             elif localname == "ManagedElement":
-                self._sn_tag_count["ManagedElement"] += 1
+                self._sn_queue[-1]["ManagedElement"] += 1
 
         def end(self, tag):
             localname = etree.QName(tag).localname
 
             if localname == "SubNetwork":
-                self._cd["SubNetwork(s)"].append(self._sn_tag_count)
+                sn_tag_count = self._sn_queue.pop()
+                self._cd["SubNetwork(s)"].append(sn_tag_count)
 
             elif localname == "configData":
                 self._outcome.append(self._cd)
