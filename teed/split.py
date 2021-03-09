@@ -1,9 +1,11 @@
+import os
 from os import path
-from lxml import etree
+from lxml import etree, objectify
 from datetime import datetime
 from copy import deepcopy
+from contextlib import ExitStack
 
-'''
+
 def reverse_readline(filename, buf_size=8192):
     """
     A generator that returns the lines of a file in reverse order
@@ -49,29 +51,64 @@ file_name = os.path.basename(in_file_path)
 footer = []
 for line in reverse_readline(in_file_path, 1024):
     line = line.strip()
-    if not (line.startswith("</xn:SubNetwork>")):
+    if not (line.startswith("</configData")):
         # footer
         footer.append(line)
     else:
-        # MeContext or VsDataContainer found, break loop
+        # configData found, break loop
         break
 
-# sort foort back to file order
-footer.reverse()
-'''
+# extract the fileFooter dateTime attribute
+# <fileFooter dateTime="2017-10-04T00:39:15Z"/>
+footer_attrib = {"dateTime": None}
+for line in footer:
+    if line.startswith("<fileFooter"):
+        footer_attrib["dateTime"] = line[line.index('"') + 1 : line.rindex('"')]
+        break
+
+
+def sn_writer(subnetwork_ids, bulkCmConfigDataFile, configData, fileHeader):
+    element = None
+    snw_id = subnetwork_ids[-1]
+    with etree.xmlfile(
+        f"tmp/UTRAN_TOPOLOGY_20171004_SubNetwork_{snw_id}.xml", encoding=encoding
+    ) as xf:
+
+        xf.write_declaration()
+        with xf.element("bulkCmConfigDataFile", nsmap=bulkCmConfigDataFile.get("nsmap")):
+            xf.write(etree.Element("fileHeader", attrib=fileHeader["attrib"]))
+            with xf.element("configData", attrib=configData["attrib"]):
+
+                # enter the xn:SubNetwork(s) 
+                with ExitStack() as stack:
+                    for sn_id in subnetwork_ids:
+                        stack.enter_context(xf.element("xn:SubNetwork", id=sn_id))
+
+                    try:
+                        while True:
+                            element = yield
+                            xf.write(element)
+                            xf.flush()
+                    except GeneratorExit:
+                        # called on sn_w.close()
+                        # needed to resume sn_writer
+                        # write the fileFooter element
+                        # below
+                        pass
+
+            xf.write(etree.Element("fileFooter", attrib=footer_attrib))
+
 
 start = datetime.now()
 
-with open(
-    "benchmark/UTRAN_TOPOLOGY_20171004.xml", mode="rb", buffering=8192
-) as in_stream:
+with open("benchmark/UTRAN_TOPOLOGY_20171004.xml", mode="rb") as in_stream:
 
     bulkCmConfigDataFile = None
     configData = None
     fileHeader = None
     fileFooter = None
     subnetwork_ids = []
-    subnetwork_ids_file = {}
+    sn_w = None
 
     for event, element in etree.iterparse(
         in_stream,
@@ -84,6 +121,7 @@ with open(
             "{*}fileHeader",
             "{*}configData",
             "{*}SubNetwork",
+            "{*}MeContext",
             "{*}fileFooter",
         ),
         no_network=True,
@@ -95,32 +133,25 @@ with open(
     ):
         localName = etree.QName(element.tag).localname
 
-        if event == "start" and localName == "SubNetwork":
+        if event == "end" and localName == "MeContext":
+            sn_w.send(element)
+
+        elif event == "start" and localName == "SubNetwork":
             sn_id = element.attrib.get("id")
             subnetwork_ids.append(sn_id)
 
-            # subnetwork_ids_file[sn_id] = xf
-
             print(sn_id)
+
+            if sn_w is not None:
+                sn_w.close()
+
+            sn_w = sn_writer(subnetwork_ids, bulkCmConfigDataFile, configData, fileHeader)
+            next(sn_w)
 
         elif event == "end" and localName == "SubNetwork":
             sn_id = subnetwork_ids.pop()
 
-            childs = element.iterchildren()
-
-            with etree.xmlfile(
-                f"tmp/UTRAN_TOPOLOGY_20171004_SubNetwork_{sn_id}.xml", encoding=encoding
-            ) as xf:
-
-                xf.write_declaration()
-                with xf.element(**bulkCmConfigDataFile):                    
-                    for child in childs:
-                        xf.write(child)
-
-            break  ### @@
-
         elif event == "start" and localName == "bulkCmConfigDataFile":
-
             encoding = (element.getroottree()).docinfo.encoding
             bulkCmConfigDataFile = {
                 "tag": element.tag,
@@ -129,35 +160,21 @@ with open(
             }
 
         elif event == "start" and localName == "fileHeader":
-
             fileHeader = {
                 "tag": element.tag,
-                "attrib": element.attrib,
+                "attrib": deepcopy(element.attrib),
                 "nsmap": element.nsmap,
             }
 
         elif event == "start" and localName == "configData":
-
             configData = {
                 "tag": element.tag,
-                "attrib": element.attrib,
-                "nsmap": element.nsmap,
-            }
-
-        elif event == "start" and localName == "fileFooter":
-
-            fileFooter = {
-                "tag": element.tag,
-                "attrib": element.attrib,
+                "attrib": deepcopy(element.attrib),
                 "nsmap": element.nsmap,
             }
 
         if event == "end":
             element.clear(keep_tail=True)
-
-    # for sn_stream in subnetwork_ids_file.values():
-    # sn_stream.flush()
-    # sn_stream.close()
 
     finish = datetime.now()
 
