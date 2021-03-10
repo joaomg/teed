@@ -12,11 +12,15 @@ def test_bulkcm_probe_program():
     assert result.stdout.count("Probing data/bulkcm.xml")
 
     assert result.stdout.count(
-        """[{'dnPrefix': 'DC=a1.companyNN.com',
-  'SubNetwork(s)': [{'id': '1',
-                     'ManagementNode': 1,
-                     'MeContext': 0,
-                     'ManagedElement': 2}]}]"""
+        """{'encoding': 'UTF-8',
+ 'nsmap': {None: 'http://www.3gpp.org/ftp/specs/archive/32_series/32.615#configData',
+           'xn': 'http://www.3gpp.org/ftp/specs/archive/32_series/32.625#genericNrm'},
+ 'fileHeader': None,
+ 'configData': [{'dnPrefix': 'DC=a1.companyNN.com',
+                 'SubNetwork(s)': [{'id': '1',
+                                    'ManagementNode': 1,
+                                    'ManagedElement': 2}]}],
+ 'fileFooter': None}"""
     )
     assert result.stdout.count("Duration: ")
 
@@ -25,7 +29,7 @@ def test_bulkcm_probe_program():
     assert result.exit_code == 1
     assert result.stdout.count("Probing data/tag_mismatch.xml")
     assert result.stdout.count(
-        "Opening and ending tag mismatch: abx line 0 and abcMax, line 15, column 65 (tag_mismatch.xml, line 15)"
+        "Opening and ending tag mismatch: abx line 15 and abcMax, line 15, column 65 (tag_mismatch.xml, line 15)"
     )
 
 

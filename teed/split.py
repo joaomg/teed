@@ -1,6 +1,5 @@
 import os
-from os import path
-from lxml import etree, objectify
+from lxml import etree
 from datetime import datetime
 from copy import deepcopy
 from contextlib import ExitStack
@@ -79,7 +78,7 @@ def sn_writer(subnetwork_ids, bulkCmConfigDataFile, configData, fileHeader):
             xf.write(etree.Element("fileHeader", attrib=fileHeader["attrib"]))
             with xf.element("configData", attrib=configData["attrib"]):
 
-                # enter the xn:SubNetwork(s) 
+                # enter the xn:SubNetwork(s)
                 with ExitStack() as stack:
                     for sn_id in subnetwork_ids:
                         stack.enter_context(xf.element("xn:SubNetwork", id=sn_id))

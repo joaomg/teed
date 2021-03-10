@@ -7,27 +7,53 @@ from teed import bulkcm
 def test_probe():
     """ Test bulkcm.probe """
 
-    assert bulkcm.probe("data/bulkcm.xml") == [
-        {
-            "dnPrefix": "DC=a1.companyNN.com",
-            "SubNetwork(s)": [
-                {"id": "1", "ManagementNode": 1, "MeContext": 0, "ManagedElement": 2}
-            ],
-        }
-    ]
+    # default probing
+    assert bulkcm.probe("data/bulkcm.xml") == {
+        "encoding": "UTF-8",
+        "nsmap": {
+            None: "http://www.3gpp.org/ftp/specs/archive/32_series/32.615#configData",
+            "xn": "http://www.3gpp.org/ftp/specs/archive/32_series/32.625#genericNrm",
+        },
+        "fileHeader": None,
+        "configData": [
+            {
+                "dnPrefix": "DC=a1.companyNN.com",
+                "SubNetwork(s)": [{"id": "1", "ManagementNode": 1, "ManagedElement": 2}],
+            }
+        ],
+        "fileFooter": None,
+    }
 
+    # probe by ManagementNode and ManagedElement
+    assert bulkcm.probe("data/bulkcm.xml", ["ManagementNode", "ManagedElement"]) == {
+        "encoding": "UTF-8",
+        "nsmap": {
+            None: "http://www.3gpp.org/ftp/specs/archive/32_series/32.615#configData",
+            "xn": "http://www.3gpp.org/ftp/specs/archive/32_series/32.625#genericNrm",
+        },
+        "fileHeader": None,
+        "configData": [
+            {
+                "dnPrefix": "DC=a1.companyNN.com",
+                "SubNetwork(s)": [{"id": "1", "ManagementNode": 1, "ManagedElement": 2}],
+            }
+        ],
+        "fileFooter": None,
+    }
+
+    # an invalid XML file raises an exception
     try:
-        outcome = []
-        outcome = bulkcm.probe("data/tag_mismatch.xml")
+        bulkcm_file = []
+        bulkcm_file = bulkcm.probe("data/tag_mismatch.xml")
     except Exception as e:
         # check the outcome is still an empty list
-        assert outcome == []
+        assert bulkcm_file == []
 
         # check the exception message
         # signals an invalid XML doc
         assert (
             str(e)
-            == "Opening and ending tag mismatch: abx line 0 and abcMax, line 15, column 65 (tag_mismatch.xml, line 15)"
+            == "Opening and ending tag mismatch: abx line 15 and abcMax, line 15, column 65 (tag_mismatch.xml, line 15)"
         )
 
 

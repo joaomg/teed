@@ -8,7 +8,7 @@ from os import path
 from copy import deepcopy
 from lxml import etree
 from datetime import datetime
-from typing import Generator
+from typing import Generator, List
 from pprint import pprint
 import csv
 import typer
@@ -389,115 +389,164 @@ def split_program(file_path: str, output_dir: str) -> None:
     print(f"\n#SubNetwork found: #{sn_count}")
 
 
-def probe(file_path: str) -> dict:
+def probe(
+    file_path: str,
+    elements: list = [
+        "ManagementNode",
+        "MeContext",
+        "ManagedElement",
+        "ExternalGsmCell",
+        "ExternalUtranCell",
+    ],
+) -> dict:
     """Probe a BulkCm file
 
     BulkCm XML format as described in ETSI TS 132 615
     https://www.etsi.org/deliver/etsi_ts/132600_132699/132615/09.02.00_60/ts_132615v090200p.pdf
 
-    Prints to console the namespaces, SubNetwork and number of ManagedElement
+    Analysis the BulkCm file and counts the number of elements inside the SubNetwork(s)
 
     Parameters:
         file_path (str): file_path
+        list of elements to count (list): elements
 
     Returns:
-        config data (dict): cd
+        general BulkCm file data (dict): bulkCmConfigDataFile
 
     Raise:
         TeedException
     """
 
-    class BulkCmProbe:
-        """ The parser target object that receives the etree parse events for BulkCm probing """
-
-        def __init__(self):
-            self._outcome = []
-            self._cd = None
-            self._sn = None
-            self._sn_queue = []
-
-        def start(self, tag, attrib):
-            localname = etree.QName(tag).localname
-
-            if localname == "configData":
-                if self._cd is not None:
-                    self._bulkcm.append[self._cd]
-
-                self._cd = {"dnPrefix": attrib.get("dnPrefix"), "SubNetwork(s)": []}
-
-            elif localname == "SubNetwork":
-                sn_id = attrib.get("id")
-                sn_tag_count = {
-                    "id": sn_id,
-                    "ManagementNode": 0,
-                    "MeContext": 0,
-                    "ManagedElement": 0,
-                }
-                self._sn_queue.append(sn_tag_count)
-
-            elif localname == "ManagementNode":
-                self._sn_queue[-1]["ManagementNode"] += 1
-
-            elif localname == "MeContext":
-                self._sn_queue[-1]["MeContext"] += 1
-
-            elif localname == "ManagedElement":
-                self._sn_queue[-1]["ManagedElement"] += 1
-
-        def end(self, tag):
-            localname = etree.QName(tag).localname
-
-            if localname == "SubNetwork":
-                sn_tag_count = self._sn_queue.pop()
-                self._cd["SubNetwork(s)"].append(sn_tag_count)
-
-            elif localname == "configData":
-                self._outcome.append(self._cd)
-
-        def close(self):
-            return self._outcome
+    # probing result is
+    # stored in outcome dict
+    bulkCmConfigDataFile = {}
 
     print(f"Probing {file_path}")
+    print(f"Searching for {', '.join(elements)} elements inside SubNetworks")
     if not (path.exists(file_path)):
         raise TeedException(f"Error, {file_path} doesn't exists")
 
-    parser = etree.XMLParser(
-        target=BulkCmProbe(),
-        no_network=True,
-        ns_clean=True,
-        remove_blank_text=True,
-        remove_comments=True,
-        remove_pis=True,
-        huge_tree=True,
-        recover=False,
-    )
+    # add elements to tags
+    # consider any namespace {*}
+    # and remove duplicates
+    search_tags = [
+        "{*}bulkCmConfigDataFile",
+        "{*}fileHeader",
+        "{*}configData",
+        "{*}SubNetwork",
+        "{*}fileFooter",
+    ]
+
+    for element in elements:
+        search_tags.append(f"{{*}}{element}")
+
+    search_tags = list(set(search_tags))
+
+    start = datetime.now()
 
     try:
-        outcome = etree.parse(file_path, parser)
+
+        with open(file_path, mode="rb") as in_stream:
+
+            subnetworks = []
+
+            for event, element in etree.iterparse(
+                in_stream,
+                events=(
+                    "start",
+                    "end",
+                ),
+                tag=search_tags,
+                no_network=True,
+                remove_blank_text=True,
+                remove_comments=True,
+                remove_pis=True,
+                huge_tree=True,
+                recover=False,
+            ):
+                localName = etree.QName(element.tag).localname
+
+                if event == "end" and localName in elements:
+                    if localName not in subnetworks[-1]:
+                        subnetworks[-1][localName] = 1
+                    else:
+                        subnetworks[-1][localName] += 1
+
+                elif event == "start" and localName == "SubNetwork":
+                    sn_id = element.attrib.get("id")
+                    subnetworks.append({"id": sn_id})
+
+                elif event == "start" and localName == "bulkCmConfigDataFile":
+                    encoding = (element.getroottree()).docinfo.encoding
+                    bulkCmConfigDataFile = {
+                        "encoding": encoding,
+                        "nsmap": element.nsmap,
+                        "fileHeader": None,
+                        "configData": [],
+                        "fileFooter": None,
+                    }
+
+                elif event == "end" and localName == "configData":
+                    cd = deepcopy(element.attrib)
+                    cd["SubNetwork(s)"] = subnetworks
+                    bulkCmConfigDataFile["configData"].append(cd)
+
+                    subnetworks = []
+
+                elif event == "start" and localName == "fileHeader":
+                    bulkCmConfigDataFile["fileHeader"] = deepcopy(element.attrib)
+
+                elif event == "start" and localName == "fileFooter":
+                    bulkCmConfigDataFile["fileFooter"] = deepcopy(element.attrib)
+
+                if event == "end":
+                    element.clear(keep_tail=True)
+
+            finish = datetime.now()
+
+            duration = finish - start
+
+            print(duration)
+
     except etree.XMLSyntaxError as e:
         raise TeedException(e)
 
-    return outcome
+    return bulkCmConfigDataFile
 
 
 @program.command(name="probe")
-def probe_program(file_path: str) -> None:
+def probe_program(
+    file_path: str,
+    elements: List[str] = typer.Option(
+        [
+            "ManagementNode",
+            "MeContext",
+            "ManagedElement",
+            "ExternalGsmCell",
+            "ExternalUtranCell",
+        ],
+        "--element",
+        "-e",
+        help="Count ocorrences of elements inside SubNetworks",
+    ),
+) -> None:
     """Probe a BulkCm file
 
     BulkCm XML format as described in ETSI TS 132 615
     https://www.etsi.org/deliver/etsi_ts/132600_132699/132615/09.02.00_60/ts_132615v090200p.pdf
 
-    Prints to console the namespaces, SubNetwork and number of ManagedElement
+    Analysis the BulkCm file and counts the number of elements inside the SubNetwork(s)
 
-    Command-line program for bulkcm.probe function
+    It's the command-line program for bulkcm.probe function
 
     Parameters:
         file_path (str): file_path
+        list of elements to count (list): elements
     """
 
     try:
         start = datetime.now()
-        outcome = probe(file_path)
+        outcome = probe(file_path, elements)
         finish = datetime.now()
         if outcome == []:
             # the outcome list return by probe
