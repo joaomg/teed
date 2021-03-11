@@ -100,16 +100,22 @@ def test_split():
 def test_parse():
     """ Test bulkcm.parse """
 
-    bulkcm.parse("data/bulkcm.xml", "data")
+    stream = bulkcm.BulkCmParser.stream_to_csv("data")
+    bulkcm.parse("data/bulkcm.xml", "data", stream)
 
     try:
-        bulkcm.parse("data/bulkcm_empty.xml", "data")
+        stream = bulkcm.BulkCmParser.stream_to_csv("data")
+        bulkcm.parse("data/bulkcm_empty.xml", "data", stream)
     except Exception as e:
         assert str(e) == "Document is empty, line 1, column 1 (bulkcm_empty.xml, line 1)"
 
-    bulkcm.parse("data/bulkcm_no_configData.xml", "data")
+    stream = bulkcm.BulkCmParser.stream_to_csv("data")
+    bulkcm.parse("data/bulkcm_no_configData.xml", "data", stream)
 
-    metadata, nodes, duration = bulkcm.parse("data/bulkcm_with_header_footer.xml", "data")
+    stream = bulkcm.BulkCmParser.stream_to_csv("data")
+    metadata, duration = bulkcm.parse(
+        "data/bulkcm_with_header_footer.xml", "data", stream
+    )
 
     assert metadata == {
         "dateTime": "2001-05-07T12:00:00+02:00",
@@ -118,42 +124,9 @@ def test_parse():
         "vendorName": "Company NN",
     }
 
-    assert nodes == [
-        {
-            "node_id": "1",
-            "node_name": "SubNetwork",
-            "userDefinedNetworkType": "UMTS",
-            "userLabel": "Paris SN1",
-        },
-        {
-            "locationName": "Montparnasse",
-            "node_id": "1",
-            "node_name": "ManagementNode",
-            "userDefinedState": "commercial",
-            "userLabel": "Paris MN1",
-            "vendorName": "Company NN",
-        },
-        {
-            "locationName": "Champ de Mars",
-            "managedElementType": "RNC",
-            "node_id": "1",
-            "node_name": "ManagedElement",
-            "userDefinedState": "commercial",
-            "userLabel": "Paris RN1",
-            "vendorName": "Company NN",
-        },
-        {
-            "locationName": "Concorde",
-            "managedElementType": "RNC",
-            "node_id": "2",
-            "node_name": "ManagedElement",
-            "userDefinedState": "commercial",
-            "userLabel": "Paris RN2",
-            "vendorName": "Company NN",
-        },
-    ]
-
-    with open("data/ManagedElement.csv", newline="") as csv_file:
+    with open(
+        "data/ManagedElement-86e5e4a02537853275d324e413ad88aa.csv", newline=""
+    ) as csv_file:
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == [
             "node_id",
@@ -182,7 +155,9 @@ def test_parse():
             },
         ]
 
-    with open("data/ManagementNode.csv", newline="") as csv_file:
+    with open(
+        "data/ManagementNode-b399070ab476be4cc8e408571d5ad171.csv", newline=""
+    ) as csv_file:
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == [
             "node_id",
@@ -201,45 +176,61 @@ def test_parse():
             }
         ]
 
-    with open("data/SubNetwork.csv", newline="") as csv_file:
+    with open(
+        "data/SubNetwork-72cb0caa41e7305a3da123a321ba44a7.csv", newline=""
+    ) as csv_file:
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == ["node_id", "userLabel", "userDefinedNetworkType"]
         assert list(reader) == [
             {"node_id": "1", "userLabel": "Paris SN1", "userDefinedNetworkType": "UMTS"}
         ]
 
-    metadata, nodes, duration = bulkcm.parse(
-        "data/bulkcm_with_vsdatacontainer.xml", "data"
+    stream = bulkcm.BulkCmParser.stream_to_csv("data")
+    metadata, duration = bulkcm.parse(
+        "data/bulkcm_with_vsdatacontainer.xml", "data", stream
     )
 
-    with open("data/SubNetwork.csv", newline="") as csv_file:
+    with open(
+        "data/SubNetwork-c693ebc80e2b73b0d3bbece47c529399.csv", newline=""
+    ) as csv_file:
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == ["node_id"]
         assert list(reader) == [{"node_id": "1"}]
 
-    with open("data/ManagedElement.csv", newline="") as csv_file:
+    with open(
+        "data/ManagedElement-c693ebc80e2b73b0d3bbece47c529399.csv", newline=""
+    ) as csv_file:
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == ["node_id"]
         assert list(reader) == [{"node_id": "1"}]
 
-    with open("data/RncFunction.csv", newline="") as csv_file:
+    with open(
+        "data/RncFunction-c693ebc80e2b73b0d3bbece47c529399.csv", newline=""
+    ) as csv_file:
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == ["node_id"]
         assert list(reader) == [{"node_id": "1"}]
 
-    with open("data/vsDataRncHandOver.csv", newline="") as csv_file:
+    with open(
+        "data/vsDataRncHandOver-556b3e085f577badc121eae9d6f1c7e1.csv", newline=""
+    ) as csv_file:
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == ["node_id", "abcMin", "abcMax"]
         assert list(reader) == [{"node_id": "1", "abcMin": "12", "abcMax": "34"}]
 
-    metadata, nodes, duration = bulkcm.parse("data/bulkcm_with_utrancell.xml", "data")
+    stream = bulkcm.BulkCmParser.stream_to_csv("data")
+    metadata, duration = bulkcm.parse("data/bulkcm_with_utrancell.xml", "data", stream)
 
-    with open("data/vsDataUtranCell.csv", newline="") as csv_file:
+    with open(
+        "data/vsDataUtranCell-a19f9c0eafa3491fee187d78689cd574.csv", newline=""
+    ) as csv_file:
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == ["node_id", "sc", "pcpichpower"]
         assert list(reader) == [{"node_id": "Cell1", "sc": "111", "pcpichpower": "222"}]
 
-    with open("data/vsDataRncHandOver.csv", newline="") as csv_file:
+    with open(
+        "data/vsDataRncHandOver-556b3e085f577badc121eae9d6f1c7e1.csv", newline=""
+    ) as csv_file:
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == ["node_id", "abcMin", "abcMax"]
         assert list(reader) == [{"node_id": "1", "abcMin": "12", "abcMax": "34"}]
