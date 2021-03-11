@@ -57,27 +57,22 @@ def test_probe():
         )
 
 
-def test_split_by_subnetwork():
-    """ Test bulkcm.split_by_subnetwork """
+def test_split():
+    """ Test bulkcm.split """
 
-    for sn_id, sn in bulkcm.split_by_subnetwork("data/bulkcm.xml"):
+    for sn_id, sn_file_path in bulkcm.split("data/bulkcm.xml", "tests"):
         assert sn_id == "1"
-        assert isinstance(sn, (etree._ElementTree))
-
-
-def test_split_by_subnetwork_to_file():
-    """ Test bulkcm.split_by_subnetwork_to_file """
+        assert sn_file_path == "tests/bulkcm_1.xml"
+        assert os.path.exists(sn_file_path)
 
     # remove tests/bulkcm_SubNetwork_1.xml if exists
     try:
-        os.remove("tests/bulkcm_SubNetwork_1.xml")
+        os.remove("tests/bulkcm_1.xml")
     except FileNotFoundError:
         pass
 
     # creating the new tests/bulkcm_SubNetwork_1.xml
-    for sn_id, sn_file_path in bulkcm.split_by_subnetwork_to_file(
-        "data/bulkcm.xml", "tests"
-    ):
+    for sn_id, sn_file_path in bulkcm.split("data/bulkcm.xml", "tests"):
 
         # check if tests/bulkcm_SubNetwork_1.xml exists
         assert os.path.exists(sn_file_path)
@@ -85,6 +80,8 @@ def test_split_by_subnetwork_to_file():
     # compare contents with the input
     # they must be the same since there's
     # only a SubNetwork in bulkcm.xml
+    # using ns_clean we ignore the extra ns
+    # placed in the SubNetwork elements
     parser = etree.XMLParser(
         no_network=True,
         ns_clean=True,

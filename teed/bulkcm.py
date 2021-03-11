@@ -290,7 +290,7 @@ def parse_program(file_path: str, output_dir: str) -> None:
         exit(1)
 
 
-def sn_writer(
+def subnetwork_writer(
     sn: etree._Element,
     sn_file_path: str,
     subnetwork_ids: list,
@@ -372,74 +372,78 @@ def split(file_path: str, output_dir: str) -> Generator[tuple, None, None]:
         fileHeader = None
         fileFooter = None
         subnetwork_ids = []
-        sn_w = None
 
-        for event, element in etree.iterparse(
-            stream,
-            events=(
-                "start",
-                "end",
-            ),
-            tag=(
-                "{*}bulkCmConfigDataFile",
-                "{*}fileHeader",
-                "{*}configData",
-                "{*}SubNetwork",
-                "{*}fileFooter",
-            ),
-            no_network=True,
-            remove_blank_text=True,
-            remove_comments=True,
-            remove_pis=True,
-            huge_tree=True,
-            recover=False,
-        ):
-            localName = etree.QName(element.tag).localname
+        try:
 
-            if event == "start" and localName == "SubNetwork":
-                sn_id = element.attrib.get("id")
-                subnetwork_ids.append(sn_id)
+            for event, element in etree.iterparse(
+                stream,
+                events=(
+                    "start",
+                    "end",
+                ),
+                tag=(
+                    "{*}bulkCmConfigDataFile",
+                    "{*}fileHeader",
+                    "{*}configData",
+                    "{*}SubNetwork",
+                    "{*}fileFooter",
+                ),
+                no_network=True,
+                remove_blank_text=True,
+                remove_comments=True,
+                remove_pis=True,
+                huge_tree=True,
+                recover=False,
+            ):
+                localName = etree.QName(element.tag).localname
 
-            elif event == "end" and localName == "SubNetwork":
-                sn_file_path = f"{output_dir}{path.sep}{file_name_without_ext}_{'_'.join(subnetwork_ids)}.{file_ext}"
+                if event == "start" and localName == "SubNetwork":
+                    sn_id = element.attrib.get("id")
+                    subnetwork_ids.append(sn_id)
 
-                sn_writer(
-                    element,
-                    sn_file_path,
-                    subnetwork_ids,
-                    bulkCmConfigDataFile,
-                    fileHeader,
-                    configData,
-                    fileFooter,
-                )
+                elif event == "end" and localName == "SubNetwork":
+                    sn_file_path = f"{output_dir}{path.sep}{file_name_without_ext}_{'_'.join(subnetwork_ids)}.{file_ext}"
 
-                # yield the latest SubNetwork
-                yield subnetwork_ids.pop()
+                    subnetwork_writer(
+                        element,
+                        sn_file_path,
+                        subnetwork_ids,
+                        bulkCmConfigDataFile,
+                        fileHeader,
+                        configData,
+                        fileFooter,
+                    )
 
-            elif event == "start" and localName == "bulkCmConfigDataFile":
-                bulkCmConfigDataFile = {
-                    "tag": element.tag,
-                    "attrib": element.attrib,
-                    "nsmap": element.nsmap,
-                    "encoding": (element.getroottree()).docinfo.encoding,
-                }
+                    # yield the latest SubNetwork
+                    yield (subnetwork_ids.pop(), sn_file_path)
 
-            elif event == "start" and localName == "fileHeader":
-                fileHeader = {
-                    "tag": element.tag,
-                    "attrib": deepcopy(element.attrib),
-                    "nsmap": element.nsmap,
-                }
+                elif event == "start" and localName == "bulkCmConfigDataFile":
+                    bulkCmConfigDataFile = {
+                        "tag": element.tag,
+                        "attrib": element.attrib,
+                        "nsmap": element.nsmap,
+                        "encoding": (element.getroottree()).docinfo.encoding,
+                    }
 
-            elif event == "start" and localName == "configData":
-                configData = {
-                    "tag": element.tag,
-                    "attrib": deepcopy(element.attrib),
-                    "nsmap": element.nsmap,
-                }
+                elif event == "start" and localName == "fileHeader":
+                    fileHeader = {
+                        "tag": element.tag,
+                        "attrib": deepcopy(element.attrib),
+                        "nsmap": element.nsmap,
+                    }
 
-            if event == "end":
-                element.clear(keep_tail=False)
+                elif event == "start" and localName == "configData":
+                    configData = {
+                        "tag": element.tag,
+                        "attrib": deepcopy(element.attrib),
+                        "nsmap": element.nsmap,
+                    }
+
+                if event == "end":
+                    element.clear(keep_tail=False)
+
+        except etree.XMLSyntaxError as e:
+            raise TeedException(e)
 
 
 @program.command(name="split")
@@ -458,13 +462,13 @@ def split_program(file_path: str, output_dir: str) -> None:
 
     sn_count = 0
 
-    print(f"Split {file_path} to {output_dir}")
+    print(f"Spliting {file_path} to {output_dir}")
 
     start = datetime.now()
 
     try:
-        for sn_id in split(file_path, output_dir):
-            print(sn_id)
+        for sn_id, sn_file_path in split(file_path, output_dir):
+            print(f"SubNetwork {sn_id} in {sn_file_path}")
             sn_count += 1
 
     except TeedException as e:
@@ -473,7 +477,7 @@ def split_program(file_path: str, output_dir: str) -> None:
 
     finish = datetime.now()
 
-    print(f"\n#SubNetwork found: #{sn_count}")
+    print(f"SubNetwork found: #{sn_count}")
     print(f"Duration: {finish - start}")
 
 

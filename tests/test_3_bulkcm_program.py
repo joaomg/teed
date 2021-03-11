@@ -38,9 +38,9 @@ def test_bulkcm_split_program():
     # split bulkcm.xml to data directory
     result = runner.invoke(program, "split data/bulkcm.xml data")
     assert result.exit_code == 0
-    assert result.stdout.count("Spliting the BulkCm file by SubNetwork: data/bulkcm.xml")
-    assert result.stdout.count("SubNetwork 1 to data/bulkcm_SubNetwork_1.xml")
-    assert result.stdout.count("#SubNetwork found: #1")
+    assert result.stdout.count("Spliting data/bulkcm.xml to data")
+    assert result.stdout.count("SubNetwork 1 in data/bulkcm_1.xml")
+    assert result.stdout.count("SubNetwork found: #1")
 
     # lacking output directory parameter
     result = runner.invoke(program, "split data/tag_mismatch.xml")
@@ -50,9 +50,7 @@ def test_bulkcm_split_program():
     # invalid xml file
     result = runner.invoke(program, "split data/tag_mismatch.xml data")
     assert result.exit_code == 1
-    assert result.stdout.count(
-        "Spliting the BulkCm file by SubNetwork: data/tag_mismatch.xml"
-    )
+    assert result.stdout.count("Spliting data/tag_mismatch.xml to data")
     assert result.stdout.count(
         "Opening and ending tag mismatch: abx line 15 and abcMax, line 15, column 65 (tag_mismatch.xml, line 15)"
     )
