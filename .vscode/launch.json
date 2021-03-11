@@ -11,8 +11,8 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "args": [
-                "parse",
-                "./data/OSSRC_LRAN_TOPOLOGY_20160607_4LB00032.xml",
+                "split",
+                "./benchmark/UTRAN_TOPOLOGY_20171004.xml",
                 "tmp"
             ]
         }
