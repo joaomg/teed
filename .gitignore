@@ -130,6 +130,4 @@ dmypy.json
 
 # tmp
 tmp/
-data/OSSRC_LRAN_TOPOLOGY_20160607_4LB00032.xml
-data/pt_vdf_ExternalGsmCell_20170626.xml
-data/pt_vdf_ExternalUtranCell_20170626.xml
+benchmark/
