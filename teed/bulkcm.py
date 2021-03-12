@@ -403,15 +403,26 @@ def subnetwork_writer(
                 xf.write(etree.Element("fileFooter", attrib=fileFooter["attrib"]))
 
 
-def split(file_path: str, output_dir: str) -> Generator[tuple, None, None]:
+def split(
+    file_path: str, output_dir: str, subnetworks: list = []
+) -> Generator[tuple, None, None]:
     """Split a BulkCm file by SubNetwork element
     using the split_by_subnetwork function.
 
     Write the SubNetwork(s) ElementTree to new file(s).
 
+    If subnetworks contains values, these are the SubNetwork id's
+
+    which will be split to files. Other SubNetwork, not present in the list
+
+    are to be ignore.
+
+    By default subnetworks is empty. All SubNetwork are to be processed and split to a respective file.
+
     Parameters:
         bulkcm file path (str): file_path
         output directory (str): output_dir
+        list of SubNetwork id's (list): subnetworks (if empty considerer all SubNetwork's)
 
     Yields:
         Tuple with the SubNetwork id and file path: generator(sn_id, sn_file_path)
@@ -479,6 +490,21 @@ def split(file_path: str, output_dir: str) -> Generator[tuple, None, None]:
                     subnetwork_ids.append(sn_id)
 
                 elif event == "end" and localName == "SubNetwork":
+                    # check if the subnetwork include filter
+                    # is used and if the subnetwork is to be
+                    # processed
+                    if len(subnetworks) > 0:
+                        sn_id = subnetwork_ids[-1]
+                        if sn_id not in subnetworks:
+                            subnetwork_ids.pop()
+                            element.clear(keep_tail=False)
+
+                            yield (sn_id, None)
+
+                            # move to the next iterparse event
+                            continue
+
+                    # subnetwork will be split to it's file
                     sn_file_path = path.normpath(
                         f"{output_dir}{path.sep}{file_name_without_ext}_{'_'.join(subnetwork_ids)}.{file_ext}"
                     )
@@ -526,7 +552,16 @@ def split(file_path: str, output_dir: str) -> Generator[tuple, None, None]:
 
 
 @program.command(name="split")
-def split_program(file_path: str, output_dir: str) -> None:
+def split_program(
+    file_path: str,
+    output_dir: str,
+    subnetworks: List[str] = typer.Option(
+        [],
+        "--subnetwork",
+        "-s",
+        help="SubNetworks id's to be split to file",
+    ),
+) -> None:
     """Split a BulkCm file by SubNetwork element
     using the split_by_subnetwork function.
 
@@ -537,18 +572,27 @@ def split_program(file_path: str, output_dir: str) -> None:
     Parameters:
         bulkcm file path (str): file_path
         output directory (str): output_dir
+        list of SubNetwork id's (list): subnetworks (if empty considerer all SubNetwork's)
     """
 
     sn_count = 0
+    sn_ignored = 0
 
     print(f"Spliting {file_path} to {output_dir}")
 
     start = datetime.now()
 
     try:
-        for sn_id, sn_file_path in split(file_path, output_dir):
-            print(f"SubNetwork {sn_id} in {sn_file_path}")
-            sn_count += 1
+        for sn_id, sn_file_path in split(file_path, output_dir, subnetworks):
+            if sn_file_path is not None:
+                # processed SubNetwork
+                print(f"SubNetwork {sn_id} in {sn_file_path}")
+                sn_count += 1
+
+            else:
+                # ignored SubNetwork
+                print(f"Ignored SubNetwork {sn_id}")
+                sn_ignored += 1
 
     except TeedException as e:
         typer.secho(str(e), err=True, fg=typer.colors.RED, bold=True)
@@ -556,7 +600,8 @@ def split_program(file_path: str, output_dir: str) -> None:
 
     finish = datetime.now()
 
-    print(f"SubNetwork found: #{sn_count}")
+    print(f"SubNetwork processed: #{sn_count}")
+    print(f"SubNetwork ignored: #{sn_ignored}")
     print(f"Duration: {finish - start}")
 
 
@@ -703,6 +748,7 @@ def probe_program(
     Parameters:
         file_path (str): file_path
         list of elements to count (list): elements
+        list of SubNetwork id's (list): subnetworks (if empty considerer all SubNetwork's)
     """
 
     bulkcm_info = []

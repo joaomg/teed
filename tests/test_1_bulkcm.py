@@ -62,21 +62,35 @@ def test_probe():
 def test_split():
     """ Test bulkcm.split """
 
-    for sn_id, sn_file_path in bulkcm.split("data/bulkcm.xml", "tests"):
-        assert sn_id == "1"
-        assert sn_file_path == "tests/bulkcm_1.xml"
-        assert os.path.exists(sn_file_path)
-
     # remove tests/bulkcm_SubNetwork_1.xml if exists
     try:
         os.remove("tests/bulkcm_1.xml")
     except FileNotFoundError:
         pass
 
-    # creating the new tests/bulkcm_SubNetwork_1.xml
-    for sn_id, sn_file_path in bulkcm.split("data/bulkcm.xml", "tests"):
+    # split bulkcm.xml
+    # ignore SubNetwork with id "1"
+    for sn_id, sn_file_path in bulkcm.split(
+        "data/bulkcm.xml", "tests", subnetworks=["dummyNetwork"]
+    ):
+        assert sn_id == "1"
+        assert sn_file_path is None
+        assert not (os.path.exists("tests/bulkcm_1.xml"))
 
-        # check if tests/bulkcm_SubNetwork_1.xml exists
+    # split bulkcm.xml
+    # considered SubNetwork with id "1"
+    for sn_id, sn_file_path in bulkcm.split(
+        "data/bulkcm.xml", "tests", subnetworks=["1"]
+    ):
+        assert sn_id == "1"
+        assert sn_file_path == "tests/bulkcm_1.xml"
+        assert os.path.exists(sn_file_path)
+
+    # split bulkcm.xml
+    # considered all/any SubNetwork
+    for sn_id, sn_file_path in bulkcm.split("data/bulkcm.xml", "tests"):
+        assert sn_id == "1"
+        assert sn_file_path == "tests/bulkcm_1.xml"
         assert os.path.exists(sn_file_path)
 
     # compare contents with the input
