@@ -35,12 +35,21 @@ def test_bulkcm_probe_program():
 
 def test_bulkcm_split_program():
 
+    # split bulkcm.xml to data directory, ignoring the SubNetwork 1
+    result = runner.invoke(program, "split data/bulkcm.xml data -s dummyNetwork")
+    assert result.exit_code == 0
+    assert result.stdout.count("Spliting data/bulkcm.xml to data")
+    assert result.stdout.count("Ignored SubNetwork 1")
+    assert result.stdout.count("SubNetwork processed: #0")
+    assert result.stdout.count("SubNetwork ignored: #1")
+
     # split bulkcm.xml to data directory
     result = runner.invoke(program, "split data/bulkcm.xml data")
     assert result.exit_code == 0
     assert result.stdout.count("Spliting data/bulkcm.xml to data")
     assert result.stdout.count("SubNetwork 1 in data/bulkcm_1.xml")
-    assert result.stdout.count("SubNetwork found: #1")
+    assert result.stdout.count("SubNetwork processed: #1")
+    assert result.stdout.count("SubNetwork ignored: #0")
 
     # lacking output directory parameter
     result = runner.invoke(program, "split data/tag_mismatch.xml")

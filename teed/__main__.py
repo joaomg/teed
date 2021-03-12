@@ -1,7 +1,8 @@
-import typer
 from typing import Optional
-from . import config
-from . import bulkcm
+
+import typer
+
+from . import bulkcm, config
 
 # Program
 
