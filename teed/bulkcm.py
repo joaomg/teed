@@ -92,6 +92,7 @@ class BulkCmParser:
 
         self._node_attributes = {}
         self._node_queue = []
+        self._node_path = []
         self._nodes = []
 
         # vsData handling
@@ -135,10 +136,17 @@ class BulkCmParser:
             pass
 
         elif len(attrib) > 0:
-            self._nodes.append(
-                {"node_id": attrib.get("id").strip(), "node_name": localname}
-            )
+            node_id = attrib.get("id").strip()
+
             self._node_queue.append(localname)
+            self._node_path.append({localname: node_id})
+            self._nodes.append(
+                {
+                    "node_id": node_id,
+                    "node_name": localname,
+                    "node_key": deepcopy(self._node_path),
+                }
+            )
 
             if localname == "VsDataContainer":
                 self._is_vs_data = True
@@ -163,7 +171,16 @@ class BulkCmParser:
             # replace the previous node_name
             vs_data_type = "".join(self._text)
             self._vs_data_type = vs_data_type
+            vs_id = self._node_path.pop()["VsDataContainer"]
+
+            # change VsDataContainer node_name to the vs_data_type
+            # and change the node_path to vs_data_type
+            # while preserving the vs_id
+            # update the node_key in the latest node
+            self._node_path.append({vs_data_type: vs_id})
             self._nodes[-1]["node_name"] = vs_data_type
+            self._nodes[-1]["node_key"] = deepcopy(self._node_path)
+
             self._text = []
 
         elif localname == "vsDataFormatVersion":
@@ -185,6 +202,9 @@ class BulkCmParser:
             self._is_vs_data = False
             self._vs_data_type = None
 
+            # end of node
+            self._node_path.pop()
+
         else:
             node = self._node_queue.pop()
 
@@ -196,6 +216,10 @@ class BulkCmParser:
             elif self._is_attributes:
                 # inside <xn:attributes>, node is an attribute
                 self._node_attributes[node] = "".join(self._text)
+
+            else:
+                # end of node
+                self._node_path.pop()
 
             self._text = []
 

@@ -1,0 +1,2 @@
+node_id,node_key,sc,pcpichpower
+Cell1,"[{'SubNetwork': '1'}, {'ManagedElement': '1'}, {'RncFunction': '1'}, {'vsDataUtranCell': 'Cell1'}]",111,222

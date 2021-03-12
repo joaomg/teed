@@ -119,6 +119,7 @@ def test_parse():
         "data/bulkcm_with_header_footer.xml", "data", stream
     )
 
+    # verify metadata returned by parse
     assert metadata == {
         "dateTime": "2001-05-07T12:00:00+02:00",
         "fileFormatVersion": "32.615 V4.0",
@@ -126,6 +127,7 @@ def test_parse():
         "vendorName": "Company NN",
     }
 
+    # verify metadata writen by parse to yaml file
     with open("data/bulkcm_with_header_footer_metadata.yml", "r") as yaml_file:
         metadata = yaml.load(yaml_file, Loader=yaml.FullLoader)
         assert metadata == {
@@ -136,11 +138,12 @@ def test_parse():
         }
 
     with open(
-        "data/ManagedElement-86e5e4a02537853275d324e413ad88aa.csv", newline=""
+        "data/ManagedElement-2ad0c41c0141dad76eae0425d952470c.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == [
             "node_id",
+            "node_key",
             "managedElementType",
             "userLabel",
             "vendorName",
@@ -150,6 +153,7 @@ def test_parse():
         assert list(reader) == [
             {
                 "node_id": "1",
+                "node_key": "[{'SubNetwork': '1'}, {'ManagedElement': '1'}]",
                 "managedElementType": "RNC",
                 "userLabel": "Paris RN1",
                 "vendorName": "Company NN",
@@ -158,6 +162,7 @@ def test_parse():
             },
             {
                 "node_id": "2",
+                "node_key": "[{'SubNetwork': '1'}, {'ManagedElement': '2'}]",
                 "managedElementType": "RNC",
                 "userLabel": "Paris RN2",
                 "vendorName": "Company NN",
@@ -167,11 +172,12 @@ def test_parse():
         ]
 
     with open(
-        "data/ManagementNode-b399070ab476be4cc8e408571d5ad171.csv", newline=""
+        "data/ManagementNode-bcbc45d45148e76ee80ad0ce9110eac7.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == [
             "node_id",
+            "node_key",
             "userLabel",
             "vendorName",
             "userDefinedState",
@@ -180,6 +186,7 @@ def test_parse():
         assert list(reader) == [
             {
                 "node_id": "1",
+                "node_key": "[{'SubNetwork': '1'}, {'ManagementNode': '1'}]",
                 "userLabel": "Paris MN1",
                 "vendorName": "Company NN",
                 "userDefinedState": "commercial",
@@ -188,12 +195,22 @@ def test_parse():
         ]
 
     with open(
-        "data/SubNetwork-72cb0caa41e7305a3da123a321ba44a7.csv", newline=""
+        "data/SubNetwork-05edfb4b65ec197423ff273ef30ddaff.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
-        assert reader.fieldnames == ["node_id", "userLabel", "userDefinedNetworkType"]
+        assert reader.fieldnames == [
+            "node_id",
+            "node_key",
+            "userLabel",
+            "userDefinedNetworkType",
+        ]
         assert list(reader) == [
-            {"node_id": "1", "userLabel": "Paris SN1", "userDefinedNetworkType": "UMTS"}
+            {
+                "node_id": "1",
+                "node_key": "[{'SubNetwork': '1'}]",
+                "userLabel": "Paris SN1",
+                "userDefinedNetworkType": "UMTS",
+            }
         ]
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
@@ -202,46 +219,74 @@ def test_parse():
     )
 
     with open(
-        "data/SubNetwork-c693ebc80e2b73b0d3bbece47c529399.csv", newline=""
+        "data/SubNetwork-e3c968f12ec1ae219a7e2f9d7829a67d.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
-        assert reader.fieldnames == ["node_id"]
-        assert list(reader) == [{"node_id": "1"}]
+        assert reader.fieldnames == ["node_id", "node_key"]
+        assert list(reader) == [{"node_id": "1", "node_key": "[{'SubNetwork': '1'}]"}]
 
     with open(
-        "data/ManagedElement-c693ebc80e2b73b0d3bbece47c529399.csv", newline=""
+        "data/ManagedElement-e3c968f12ec1ae219a7e2f9d7829a67d.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
-        assert reader.fieldnames == ["node_id"]
-        assert list(reader) == [{"node_id": "1"}]
+        assert reader.fieldnames == ["node_id", "node_key"]
+        assert list(reader) == [
+            {"node_id": "1", "node_key": "[{'SubNetwork': '1'}, {'ManagedElement': '1'}]"}
+        ]
 
     with open(
-        "data/RncFunction-c693ebc80e2b73b0d3bbece47c529399.csv", newline=""
+        "data/RncFunction-e3c968f12ec1ae219a7e2f9d7829a67d.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
-        assert reader.fieldnames == ["node_id"]
-        assert list(reader) == [{"node_id": "1"}]
+        assert reader.fieldnames == ["node_id", "node_key"]
+        assert list(reader) == [
+            {
+                "node_id": "1",
+                "node_key": "[{'SubNetwork': '1'}, {'ManagedElement': '1'}, {'RncFunction': '1'}]",
+            }
+        ]
 
     with open(
-        "data/vsDataRncHandOver-556b3e085f577badc121eae9d6f1c7e1.csv", newline=""
+        "data/vsDataRncHandOver-430a850294cd3dd7ab5fac2a6e8b8c75.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
-        assert reader.fieldnames == ["node_id", "abcMin", "abcMax"]
-        assert list(reader) == [{"node_id": "1", "abcMin": "12", "abcMax": "34"}]
+        assert reader.fieldnames == ["node_id", "node_key", "abcMin", "abcMax"]
+        assert list(reader) == [
+            {
+                "node_id": "1",
+                "node_key": "[{'SubNetwork': '1'}, {'ManagedElement': '1'}, {'RncFunction': '1'}, {'vsDataRncHandOver': '1'}]",
+                "abcMin": "12",
+                "abcMax": "34",
+            }
+        ]
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
     metadata, duration = bulkcm.parse("data/bulkcm_with_utrancell.xml", "data", stream)
 
     with open(
-        "data/vsDataUtranCell-a19f9c0eafa3491fee187d78689cd574.csv", newline=""
+        "data/vsDataUtranCell-58abad5af457eb77f98a476b59a0e146.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
-        assert reader.fieldnames == ["node_id", "sc", "pcpichpower"]
-        assert list(reader) == [{"node_id": "Cell1", "sc": "111", "pcpichpower": "222"}]
+        assert reader.fieldnames == ["node_id", "node_key", "sc", "pcpichpower"]
+        assert list(reader) == [
+            {
+                "node_id": "Cell1",
+                "node_key": "[{'SubNetwork': '1'}, {'ManagedElement': '1'}, {'RncFunction': '1'}, {'vsDataUtranCell': 'Cell1'}]",
+                "sc": "111",
+                "pcpichpower": "222",
+            }
+        ]
 
     with open(
-        "data/vsDataRncHandOver-556b3e085f577badc121eae9d6f1c7e1.csv", newline=""
+        "data/vsDataRncHandOver-430a850294cd3dd7ab5fac2a6e8b8c75.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
-        assert reader.fieldnames == ["node_id", "abcMin", "abcMax"]
-        assert list(reader) == [{"node_id": "1", "abcMin": "12", "abcMax": "34"}]
+        assert reader.fieldnames == ["node_id", "node_key", "abcMin", "abcMax"]
+        assert list(reader) == [
+            {
+                "node_id": "1",
+                "node_key": "[{'SubNetwork': '1'}, {'ManagedElement': '1'}, {'RncFunction': '1'}, {'vsDataUtranCell': 'Cell1'}, {'vsDataRncHandOver': '1'}]",
+                "abcMin": "12",
+                "abcMax": "34",
+            }
+        ]
