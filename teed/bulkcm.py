@@ -245,7 +245,9 @@ class BulkCmParser:
                 if node_key not in writers:
                     # create new file
                     # using mode w truncate existing files
-                    csv_path = f"{output_dir}{path.sep}{node_name}-{node_hash}.csv"
+                    csv_path = path.normpath(
+                        f"{output_dir}{path.sep}{node_name}-{node_hash}.csv"
+                    )
                     csv_file = open(csv_path, mode="w", newline="")
 
                     print(f"Created {csv_path}")
@@ -448,7 +450,9 @@ def split(file_path: str, output_dir: str) -> Generator[tuple, None, None]:
                     subnetwork_ids.append(sn_id)
 
                 elif event == "end" and localName == "SubNetwork":
-                    sn_file_path = f"{output_dir}{path.sep}{file_name_without_ext}_{'_'.join(subnetwork_ids)}.{file_ext}"
+                    sn_file_path = path.normpath(
+                        f"{output_dir}{path.sep}{file_name_without_ext}_{'_'.join(subnetwork_ids)}.{file_ext}"
+                    )
 
                     subnetwork_writer(
                         element,
