@@ -1,0 +1,3 @@
+node_id,node_key,managedElementType,userLabel,vendorName,userDefinedState,locationName
+1,"[{'SubNetwork': '1'}, {'ManagedElement': '1'}]",RNC,Paris RN1,Company NN,commercial,Champ de Mars
+2,"[{'SubNetwork': '1'}, {'ManagedElement': '2'}]",RNC,Paris RN2,Company NN,commercial,Concorde

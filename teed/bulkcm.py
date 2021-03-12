@@ -15,9 +15,10 @@ from pprint import pprint
 from typing import Generator, List
 
 import typer
+import yaml
 from lxml import etree
 
-from teed import TeedException
+from teed import TeedException, file_path_parse
 
 program = typer.Typer()
 
@@ -91,6 +92,7 @@ class BulkCmParser:
 
         self._node_attributes = {}
         self._node_queue = []
+        self._node_path = []
         self._nodes = []
 
         # vsData handling
@@ -134,10 +136,17 @@ class BulkCmParser:
             pass
 
         elif len(attrib) > 0:
-            self._nodes.append(
-                {"node_id": attrib.get("id").strip(), "node_name": localname}
-            )
+            node_id = attrib.get("id").strip()
+
             self._node_queue.append(localname)
+            self._node_path.append({localname: node_id})
+            self._nodes.append(
+                {
+                    "node_id": node_id,
+                    "node_name": localname,
+                    "node_key": deepcopy(self._node_path),
+                }
+            )
 
             if localname == "VsDataContainer":
                 self._is_vs_data = True
@@ -162,7 +171,16 @@ class BulkCmParser:
             # replace the previous node_name
             vs_data_type = "".join(self._text)
             self._vs_data_type = vs_data_type
+            vs_id = self._node_path.pop()["VsDataContainer"]
+
+            # change VsDataContainer node_name to the vs_data_type
+            # and change the node_path to vs_data_type
+            # while preserving the vs_id
+            # update the node_key in the latest node
+            self._node_path.append({vs_data_type: vs_id})
             self._nodes[-1]["node_name"] = vs_data_type
+            self._nodes[-1]["node_key"] = deepcopy(self._node_path)
+
             self._text = []
 
         elif localname == "vsDataFormatVersion":
@@ -184,6 +202,9 @@ class BulkCmParser:
             self._is_vs_data = False
             self._vs_data_type = None
 
+            # end of node
+            self._node_path.pop()
+
         else:
             node = self._node_queue.pop()
 
@@ -195,6 +216,10 @@ class BulkCmParser:
             elif self._is_attributes:
                 # inside <xn:attributes>, node is an attribute
                 self._node_attributes[node] = "".join(self._text)
+
+            else:
+                # end of node
+                self._node_path.pop()
 
             self._text = []
 
@@ -304,11 +329,17 @@ def parse(file_path: str, output_dir: str, stream: Generator) -> tuple:
     try:
         # parse the BulkCm file
         metadata = etree.parse(file_path, parser)
+
+        # output metadata
+        _, file_name_without_ext, _ = file_path_parse(file_path)
+        metadata_file_path = path.normpath(
+            f"{output_dir}{path.sep}{file_name_without_ext}_metadata.yml"
+        )
+        with open(metadata_file_path, "w") as out:
+            yaml.dump(metadata, out, default_flow_style=False)
+
     except etree.XMLSyntaxError as e:
         raise TeedException(e)
-
-    # output the nodes list(dict) to the directory
-    # BulkCmParser.to_csv(deepcopy(nodes), output_dir)
 
     finish = datetime.now()
 
@@ -409,9 +440,7 @@ def split(file_path: str, output_dir: str) -> Generator[tuple, None, None]:
             fileFooter = {"attrib": {"dateTime": dateTime}}
             break
 
-    file_name = path.basename(file_path)
-    file_name_without_ext = file_name.split(".")[0]
-    file_ext = file_name.split(".")[1]
+    file_name, file_name_without_ext, file_ext = file_path_parse(file_path)
 
     with open(file_path, mode="rb") as stream:
 

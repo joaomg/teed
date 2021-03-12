@@ -1,6 +1,6 @@
-from typer.testing import CliRunner
-from teed.__main__ import program
 from teed import __version__
+from teed.__main__ import program
+from typer.testing import CliRunner
 
 runner = CliRunner()
 
