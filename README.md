@@ -37,5 +37,6 @@ python -m teed bulkcm parse data/bulkcm_with_vsdatacontainer.xml data
 Beside command-line teed can be used as a library:
 ```
 from teed import bulkcm
-bulkcm.parse("data/bulkcm.xml", "data")
+stream = bulkcm.BulkCmParser.stream_to_csv("data")
+bulkcm.parse("data/bulkcm.xml", "data", stream)
 ```

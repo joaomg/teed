@@ -5,6 +5,7 @@
 # python -m teed bulkcm probe data/bulkcm_with_vsdatacontainer.xml
 
 import csv
+import hashlib
 import os
 from contextlib import ExitStack
 from copy import deepcopy
@@ -22,8 +23,10 @@ program = typer.Typer()
 
 
 def reverse_readline(filename, buf_size=8192):
-    """
-    A generator that returns the lines of a file in reverse order
+    """A generator that returns the lines of a file in reverse order
+
+    Retrieved from with some modification:
+
     http://stackoverflow.com/questions/2301789/read-a-file-in-reverse-order-using-python
     """
 
@@ -60,9 +63,19 @@ def reverse_readline(filename, buf_size=8192):
 
 
 class BulkCmParser:
-    """ The parser target object that receives the etree parse events for BulkCm parsing """
+    """The parser target object that receives
 
-    def __init__(self, output_dir: str):
+    etree parse events for BulkCm parsing
+
+    Collects bulkcm data into node dicts
+
+    and sends them to the stream.
+
+    Parameters:
+        nodes stream (Generator): stream
+    """
+
+    def __init__(self, stream: Generator):
 
         # bulkcm general file data
         self._metadata = {}
@@ -80,9 +93,14 @@ class BulkCmParser:
         self._node_queue = []
         self._nodes = []
 
-        # vsData
+        # vsData handling
         self._is_vs_data = False
         self._vs_data_type = None
+
+        # move stream to the first yield
+        # set it ready to receive nodes
+        self._stream = stream
+        next(stream)
 
     def start(self, tag, attrib):
         # flow-control using the element tag local name
@@ -133,9 +151,11 @@ class BulkCmParser:
         if localname == "attributes":
             # </xn:attributes>
             # not a attribute, localname is a node
-            self._nodes[-1].update(self._node_attributes)
-            self._node_attributes = {}
+            node = self._nodes.pop()
+            node.update(self._node_attributes)
+            self._stream.send(node)
 
+            self._node_attributes = {}
             self._is_attributes = False
 
         elif localname == "vsDataType":
@@ -182,69 +202,94 @@ class BulkCmParser:
         self._text.append(data.strip())
 
     def close(self):
-        return self._metadata, self._nodes
+
+        # send all the nodes to stream
+        for node in self._nodes:
+            self._stream.send(node)
+
+        # send close signal to
+        # the stream generator
+        self._stream.close()
+
+        return self._metadata
 
     @staticmethod
-    def nodes_to_csv(nodes: list, output_dir: str) -> None:
-        """A naive, iterative-approach, serialization of nodes to csv files
+    def stream_to_csv(output_dir) -> Generator[dict, None, None]:
+        """Serialization of nodes to csv files using generator
+
+        creates the CSV file in the output directory
+
+        receives node dict by send/yield
 
         @@@ to be changes to producer/consumer using asyncio.Queue
         @@@ https://pymotw.com/3/asyncio/synchronization.html#queues
 
         Parameters:
-            node list of disct (list(dict)): nodes
             output directory (str): output_dir
         """
 
         csv_file = None
         writer = None
-        previous_node_name = ""
-        nodes = sorted(nodes, key=lambda k: k["node_name"])
-        for node in nodes:
-            node_name = node.pop("node_name")
+        writers = {}  # maps the node_key to it's writer
 
-            if previous_node_name != node_name:
+        try:
 
-                # flush and close previous csv_file
-                if writer is not None:
-                    csv_file.flush()
-                    csv_file.close()
+            while True:
+                node = yield
+                node_name = node.pop("node_name")
+                # @@@ this md5 hash is expensive, and runs for each node
+                # @@@ analyze and find a more efficient method
+                node_hash = hashlib.md5("".join(list(node.keys())).encode()).hexdigest()
+                node_key = f"{node_name}_{node_hash}"
 
-                # create new file
-                # using mode w truncate existing files
-                csv_path = f"{output_dir}{path.sep}{node_name}.csv"
-                csv_file = open(csv_path, mode="w", newline="")
+                if node_key not in writers:
+                    # create new file
+                    # using mode w truncate existing files
+                    csv_path = path.normpath(
+                        f"{output_dir}{path.sep}{node_name}-{node_hash}.csv"
+                    )
+                    csv_file = open(csv_path, mode="w", newline="")
 
-                print(f"Created {csv_path}")
+                    print(f"Created {csv_path}")
 
-                attributes = node.keys()
-                writer = csv.DictWriter(csv_file, fieldnames=attributes)
-                writer.writeheader()
+                    attributes = node.keys()
+                    writer = csv.DictWriter(csv_file, fieldnames=attributes)
+                    writer.writeheader()
+
+                    writers[node_key] = writer
+
+                else:
+                    # get previously created writer
+                    writer = writers.get(node_key)
+
                 writer.writerow(node)
-            else:
-                # write node to the current writer
-                writer.writerow(node)
 
-            previous_node_name = node_name
+        except StopIteration:
+            for writer in writers:
+                writer.close()
 
 
-def parse(file_path: str, output_dir: str) -> tuple:
+def parse(file_path: str, output_dir: str, stream: Generator) -> tuple:
     """Parse BulkCm file and place it's content in output directories CSV files
 
     Parameters:
         bulkcm file path (str): file_path
         output directory (str): output_dir
+        send parsed nodes to stream (Generator): stream
 
     Returns:
-        bulkcm metadata, nodes and parsing duration (dict, [dict], timedelta): (metadata, nodes, duration)
+        bulkcm metadata and parsing duration (dict, timedelta): (metadata, duration)
     """
 
     print(f"Parsing {file_path}")
     if not (path.exists(file_path)):
-        raise TeedException(f"Error, {file_path} doesn't exists")
+        raise TeedException(f"Error, input file {file_path} doesn't exists")
+
+    if not (path.exists(output_dir)):
+        raise TeedException(f"Error, output directory {output_dir} doesn't exists")
 
     parser = etree.XMLParser(
-        target=BulkCmParser(output_dir),
+        target=BulkCmParser(stream),
         no_network=True,
         ns_clean=True,
         remove_blank_text=True,
@@ -258,16 +303,16 @@ def parse(file_path: str, output_dir: str) -> tuple:
 
     try:
         # parse the BulkCm file
-        metadata, nodes = etree.parse(file_path, parser)
+        metadata = etree.parse(file_path, parser)
     except etree.XMLSyntaxError as e:
         raise TeedException(e)
 
     # output the nodes list(dict) to the directory
-    BulkCmParser.nodes_to_csv(deepcopy(nodes), output_dir)
+    # BulkCmParser.to_csv(deepcopy(nodes), output_dir)
 
     finish = datetime.now()
 
-    return (metadata, nodes, finish - start)
+    return (metadata, finish - start)
 
 
 @program.command(name="parse")
@@ -282,7 +327,10 @@ def parse_program(file_path: str, output_dir: str) -> None:
     """
 
     try:
-        metadata, nodes, duration = parse(file_path, output_dir)
+        # stream to csv files
+        stream_csv = BulkCmParser.stream_to_csv(output_dir)
+
+        metadata, duration = parse(file_path, output_dir, stream_csv)
         print(f"Duration: {duration}")
     except TeedException as e:
         typer.secho(f"Error parsing {file_path}")
@@ -402,7 +450,9 @@ def split(file_path: str, output_dir: str) -> Generator[tuple, None, None]:
                     subnetwork_ids.append(sn_id)
 
                 elif event == "end" and localName == "SubNetwork":
-                    sn_file_path = f"{output_dir}{path.sep}{file_name_without_ext}_{'_'.join(subnetwork_ids)}.{file_ext}"
+                    sn_file_path = path.normpath(
+                        f"{output_dir}{path.sep}{file_name_without_ext}_{'_'.join(subnetwork_ids)}.{file_ext}"
+                    )
 
                     subnetwork_writer(
                         element,
