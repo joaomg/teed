@@ -15,9 +15,10 @@ from pprint import pprint
 from typing import Generator, List
 
 import typer
+import yaml
 from lxml import etree
 
-from teed import TeedException
+from teed import TeedException, file_path_parse
 
 program = typer.Typer()
 
@@ -304,11 +305,17 @@ def parse(file_path: str, output_dir: str, stream: Generator) -> tuple:
     try:
         # parse the BulkCm file
         metadata = etree.parse(file_path, parser)
+
+        # output metadata
+        _, file_name_without_ext, _ = file_path_parse(file_path)
+        metadata_file_path = path.normpath(
+            f"{output_dir}{path.sep}{file_name_without_ext}_metadata.yml"
+        )
+        with open(metadata_file_path, "w") as out:
+            yaml.dump(metadata, out, default_flow_style=False)
+
     except etree.XMLSyntaxError as e:
         raise TeedException(e)
-
-    # output the nodes list(dict) to the directory
-    # BulkCmParser.to_csv(deepcopy(nodes), output_dir)
 
     finish = datetime.now()
 
@@ -409,9 +416,7 @@ def split(file_path: str, output_dir: str) -> Generator[tuple, None, None]:
             fileFooter = {"attrib": {"dateTime": dateTime}}
             break
 
-    file_name = path.basename(file_path)
-    file_name_without_ext = file_name.split(".")[0]
-    file_ext = file_name.split(".")[1]
+    file_name, file_name_without_ext, file_ext = file_path_parse(file_path)
 
     with open(file_path, mode="rb") as stream:
 

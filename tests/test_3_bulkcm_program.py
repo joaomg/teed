@@ -1,5 +1,5 @@
-from typer.testing import CliRunner
 from teed.bulkcm import program
+from typer.testing import CliRunner
 
 runner = CliRunner()
 

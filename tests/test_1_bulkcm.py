@@ -1,5 +1,7 @@
-import os
 import csv
+import os
+
+import yaml
 from lxml import etree
 from teed import bulkcm
 
@@ -123,6 +125,15 @@ def test_parse():
         "senderName": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1",
         "vendorName": "Company NN",
     }
+
+    with open("data/bulkcm_with_header_footer_metadata.yml", "r") as yaml_file:
+        metadata = yaml.load(yaml_file, Loader=yaml.FullLoader)
+        assert metadata == {
+            "dateTime": "2001-05-07T12:00:00+02:00",
+            "fileFormatVersion": "32.615 V4.0",
+            "senderName": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1",
+            "vendorName": "Company NN",
+        }
 
     with open(
         "data/ManagedElement-86e5e4a02537853275d324e413ad88aa.csv", newline=""
