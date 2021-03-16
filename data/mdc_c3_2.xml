@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="MeasDataCollection.xsl"?>
+<!DOCTYPE mdc SYSTEM "MeasDataCollection.dtd">
+<mdc>
+    <mfh>
+        <ffv>32.401 V5.0</ffv>
+        <sn>DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1</sn>
+        <st>RNC</st>
+        <vn>Company NN</vn>
+        <cbt>20000301140000</cbt>
+    </mfh>
+    <md>
+        <neid>
+            <neun>RNC Telecomville</neun>
+            <nedn>DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1</nedn>
+        </neid>
+        <mi>
+            <mts>20000301141430</mts>
+            <gp>900</gp>
+            <mt p="1">attTCHSeizures</mt>
+            <mt p="2">succTCHSeizures</mt>
+            <mt p="3">attImmediateAssignProcs</mt>
+            <mt p="4">succImmediateAssignProcs</mt>
+            <mv>
+                <moid>RncFunction=RF-1,UtranCell=Gbg-997</moid>
+                <r p="1">234</r>
+                <r p="2">345</r>
+                <r p="3">567</r>
+                <r p="4">789</r>
+            </mv>
+            <mv>
+                <moid>RncFunction=RF-1,UtranCell=Gbg-998</moid>
+                <r p="1">890</r>
+                <r p="2">901</r>
+                <r p="3">123</r>
+                <r p="4">234</r>
+            </mv>
+            <mv>
+                <moid>RncFunction=RF-1,UtranCell=Gbg-999</moid>
+                <r p="1">456</r>
+                <r p="2">567</r>
+                <r p="3">678</r>
+                <r p="4">789</r>
+                <sf>TRUE</sf>
+            </mv>
+        </mi>
+    </md>
+    <mff>
+        <ts>20000301141500</ts>
+    </mff>
+</mdc>

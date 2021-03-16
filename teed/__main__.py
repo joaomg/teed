@@ -2,13 +2,14 @@ from typing import Optional
 
 import typer
 
-from . import bulkcm, config
+from . import bulkcm, config, meas
 
 # Program
 
 
 program = typer.Typer()
 program.add_typer(bulkcm.program, name="bulkcm")
+program.add_typer(meas.program, name="meas")
 
 # Helpers
 

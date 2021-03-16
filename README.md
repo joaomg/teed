@@ -40,3 +40,13 @@ from teed import bulkcm
 stream = bulkcm.BulkCmParser.stream_to_csv("data")
 bulkcm.parse("data/bulkcm.xml", "data", stream)
 ```
+
+### Meas
+https://www.etsi.org/deliver/etsi_ts/132400_132499/132401/16.00.00_60/ts_132401v160000p.pdf
+
+https://www.arib.or.jp/english/html/overview/doc/STD-T63V9_21/5_Appendix/Rel5/32/32401-550.pdf
+( contains the Asn1 and Xml meas files examples )
+
+https://www.etsi.org/intellectual-property-rights
+
+https://www.etsi.org/images/files/IPR/etsi-ipr-policy.pdf
