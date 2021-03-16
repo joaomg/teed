@@ -1,16 +1,27 @@
 # python -m teed meas parse data/mdc_c3_1.xml data
-# python -m teed meas parse data/mdc_c3_2.xml data
-# python -m teed meas parse data/meas_c4_2.xml data
-# python -m teed meas parse data/meas_c4_2.xml data
+# python -m teed meas parse data/meas_c4_1.xml data
 # python -m teed meas parse "data/mdc*xml" data
 # python -m teed meas parse "data/meas*xml" data
 
-import asyncio
+# python -m teed meas parse "benchmark/eric_rnc/A*xml" tmp
+# Parent process exiting...
+# Duration(s): 20.945605682000178
+# python -m teed meas parse "benchmark/eric_nodeb/A*xml" tmp
+# Parent process exiting...
+# Duration(s): 15.023600272999829
+# python -m teed meas parse "benchmark/*/A*xml" tmp --recursive
+# Parent process exiting...
+# Duration(s): 35.324785770999824
+# Using top we've seen low memory usage, even though two python processes are used: producer and consumer
+
+
+from multiprocessing import Process, Queue, Lock
 import csv
 import glob
 import hashlib
 import time
 from os import path
+import os
 
 import typer
 
@@ -22,7 +33,7 @@ from teed import TeedException
 program = typer.Typer()
 
 
-async def produce(queue, pathname, recursive=False):
+def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
     """Fetch Meas/Mdc files from pathname glob and parse
 
     For each measData/md element create a table item
@@ -32,9 +43,14 @@ async def produce(queue, pathname, recursive=False):
     Optionally search in the pathname subdirectories.
     """
 
+    with lock:
+        print(f"Producer starting {os.getpid()}")
+
     for file_path in glob.iglob(pathname, recursive=recursive):
         with open(file_path, mode="rb") as stream:
-            print(f"Parsing {file_path}")
+            with lock:
+                print(f"Parsing {file_path}")
+
             metadata = {"file_path": file_path}
 
             for event, element in etree.iterparse(
@@ -113,14 +129,16 @@ async def produce(queue, pathname, recursive=False):
                         # place it in the queue
                         if table["rows"] != [] and mts != []:
                             table_name = (moid.split(",")[-1]).split("=")[0]  # UtranCell
-                            print(f"Placing {table_name}")
+                            with lock:
+                                print(f"Placing {table_name}")
 
-                            await queue.put(table)
+                            queue.put(table)
                         else:
                             # ignoring this mi
-                            print("Warning, ignoring mi element due to lack of data")
-                            print(f"Number of mt's: #{len(mts)}")
-                            print(f"First mt: {mts[0]}")
+                            with lock:
+                                print("Warning, ignoring mi element due to lack of data")
+                                print(f"Number of mt's: #{len(mts)}")
+                                print(f"First mt: {mts[0]}")
 
                 elif localName == "mfh":
                     # <mfh>
@@ -145,11 +163,14 @@ async def produce(queue, pathname, recursive=False):
                 element.clear(keep_tail=False)
 
 
-async def consume(output_dir: str, queue: asyncio.Queue):
+def consume(queue: Queue, lock: Lock, output_dir: str):
     writers = {}  # maps the node_key to it's writer
 
+    with lock:
+        print(f"Consumer starting {os.getpid()}")
+
     while True:
-        table = await queue.get()
+        table = queue.get()
 
         moid_1st = table["rows"][0][0]  # RncFunction=RF-1,UtranCell=Gbg-997
         table_name = (moid_1st.split(",")[-1]).split("=")[0]  # UtranCell
@@ -164,7 +185,8 @@ async def consume(output_dir: str, queue: asyncio.Queue):
             # create new file
             csv_file = open(csv_path, mode="w", newline="")
 
-            print(f"Created {csv_path}")
+            with lock:
+                print(f"Created {csv_path}")
 
             writer = csv.writer(csv_file)
             writer.writerow(columns)
@@ -175,7 +197,8 @@ async def consume(output_dir: str, queue: asyncio.Queue):
             # append to end of file
             csv_file = open(csv_path, mode="a", newline="")
 
-            print(f"Append {csv_path}")
+            with lock:
+                print(f"Append {csv_path}")
 
             writer = csv.writer(csv_file)
             writers[table_key] = writer
@@ -188,60 +211,36 @@ async def consume(output_dir: str, queue: asyncio.Queue):
         for row in table["rows"]:
             writer.writerow(row)
 
-        queue.task_done()
 
+def parse(pathname: str, output_dir: str, recursive: bool = False) -> tuple:
 
-async def parse(
-    pathname: str, output_dir: str, recursive: bool = False, queue_size: int = 12
-) -> tuple:
+    # Create the Queue object
+    queue = Queue()
 
-    """
-    queue = asyncio.Queue(10)
-    # schedule the consumer
-    consumer = asyncio.ensure_future(consume(output_dir, queue))
-    # run the producer and wait for completion
-    await produce(queue, pathname, recursive)
-    # wait until the consumer has processed all items
-    await queue.join()
-    # the consumer is still awaiting for an item, cancel it
-    consumer.cancel()
-    """
+    # Create a lock object to synchronize resource access
+    lock = Lock()
 
-    # table queue
-    queue = asyncio.Queue(queue_size)
+    producer_proc = None
+    consumer_proc = None
 
-    # futures
-    producer = asyncio.ensure_future(produce(queue, pathname, recursive))
-    consumer = asyncio.ensure_future(consume(output_dir, queue))
-
-    # wait for futures
-    done, pending = await asyncio.wait(
-        [producer, consumer],
-        timeout=35,
-        return_when=asyncio.FIRST_COMPLETED,
+    producer_proc = Process(
+        target=produce, name="producer", args=(queue, lock, pathname, recursive)
     )
 
-    # cancel the consumer, which is now idle
-    # consumer.cancel()
+    consumer_proc = Process(
+        target=consume, name="consumer", args=(queue, lock, output_dir)
+    )
+    consumer_proc.daemon = True
 
-    for task in done:
-        print(task)
+    # Start the producer and consumer
+    # The Python VM will launch new independent processes for each Process object
+    producer_proc.start()
+    consumer_proc.start()
 
-    for task in pending:
-        print(task)
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            print("main(): cancel_me is cancelled now")
+    # Like threading, we have a join() method that synchronizes our program
+    producer_proc.join()
 
-    """
-    if consumer.done():
-        print(f"Error, exception in consumer: {consumer.exception()}")
-
-    if producer.done():
-        print(f"Error, exception in producer: {producer.exception()}")
-    """
+    print("Parent process exiting...")
 
 
 @program.command(name="parse")
@@ -260,7 +259,7 @@ def parse_program(pathname: str, output_dir: str, recursive: bool = False) -> No
 
     try:
         start = time.perf_counter()
-        asyncio.run(parse(pathname, output_dir, recursive))
+        parse(pathname, output_dir, recursive)
         duration = time.perf_counter() - start
         print(f"Duration(s): {duration}")
     except TeedException as e:
