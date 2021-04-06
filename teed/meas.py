@@ -15,13 +15,14 @@
 # Using top we've seen low memory usage, even though two python processes are used: producer and consumer
 
 
-from multiprocessing import Process, Queue, Lock
 import csv
 import glob
 import hashlib
-import time
-from os import path
 import os
+import time
+from datetime import datetime, timedelta
+from multiprocessing import Lock, Process, Queue
+from os import path
 
 import typer
 
@@ -81,8 +82,7 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
                     neid = element.find("neid")
                     if neid is not None:
                         # neun = neid.find("neun").text
-                        # nedn = neid.find("nedn").text
-                        pass
+                        nedn = neid.find("nedn").text
 
                     for mi in element.iterfind("mi"):
                         table = {}
@@ -91,6 +91,10 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
                         #   <gp>900</gp>
                         ts = mi.find("mts").text
                         gp = mi.find("gp").text
+
+                        datetime_ts = datetime.strptime(ts, "%Y%m%d%H%M%S")
+                        time_gp = timedelta(seconds=float(gp))
+                        meas_ts = (datetime_ts - time_gp).strftime("%Y%m%d%H%M%S")
 
                         table["ts"] = ts
                         table["gp"] = gp
@@ -119,7 +123,9 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
                         table["rows"] = []
                         for mv in mi.iterfind("mv"):
                             moid = mv.find("moid").text
-                            row = [moid]
+                            # create the DN from the concatenation of nedn and moid
+                            dn = (f"{nedn},{moid}").strip(",")
+                            row = [meas_ts, dn]
                             for r in mv.iterfind("r"):
                                 row.append(r.text)
 
@@ -163,7 +169,7 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
                 element.clear(keep_tail=False)
 
 
-def consume(queue: Queue, lock: Lock, output_dir: str):
+def consume(queue: Queue, lock: Lock, output_dir: str, csvs: Queue):
     writers = {}  # maps the node_key to it's writer
 
     with lock:
@@ -172,14 +178,17 @@ def consume(queue: Queue, lock: Lock, output_dir: str):
     while True:
         table = queue.get()
 
-        moid_1st = table["rows"][0][0]  # RncFunction=RF-1,UtranCell=Gbg-997
+        moid_1st = table["rows"][0][1]  # RncFunction=RF-1,UtranCell=Gbg-997
         table_name = (moid_1st.split(",")[-1]).split("=")[0]  # UtranCell
         columns = table["mts"]
+        gp = table["gp"]
 
         table_hash = hashlib.md5("".join(columns).encode()).hexdigest()
-        table_key = f"{table_name}_{table_hash}"
+        table_key = f"{table_name}_{gp}_{table_hash}"
 
-        csv_path = path.normpath(f"{output_dir}{path.sep}{table_name}-{table_hash}.csv")
+        csv_path = path.normpath(
+            f"{output_dir}{path.sep}{table_name}-{gp}-{table_hash}.csv"
+        )
 
         if not (path.exists(csv_path)):
             # create new file
@@ -189,9 +198,11 @@ def consume(queue: Queue, lock: Lock, output_dir: str):
                 print(f"Created {csv_path}")
 
             writer = csv.writer(csv_file)
-            writer.writerow(columns)
+            header = ["ST", "DN"] + columns
+            writer.writerow(header)
 
             writers[table_key] = writer
+            csvs.put(csv_path)
 
         elif table_key not in writers:
             # append to end of file
@@ -202,6 +213,7 @@ def consume(queue: Queue, lock: Lock, output_dir: str):
 
             writer = csv.writer(csv_file)
             writers[table_key] = writer
+
         else:
             # file and writer exist
             # get previously created writer
@@ -211,10 +223,16 @@ def consume(queue: Queue, lock: Lock, output_dir: str):
         for row in table["rows"]:
             writer.writerow(row)
 
+        # flush the data to disk
+        csv_file.flush()
 
-def parse(pathname: str, output_dir: str, recursive: bool = False) -> tuple:
 
-    # Create the Queue object
+def parse(pathname: str, output_dir: str, recursive: bool = False) -> list:
+
+    # Create the csv files Queue object
+    csvs = Queue()
+
+    # Create the procuder -> consumer Queue object
     queue = Queue()
 
     # Create a lock object to synchronize resource access
@@ -228,7 +246,7 @@ def parse(pathname: str, output_dir: str, recursive: bool = False) -> tuple:
     )
 
     consumer_proc = Process(
-        target=consume, name="consumer", args=(queue, lock, output_dir)
+        target=consume, name="consumer", args=(queue, lock, output_dir, csvs)
     )
     consumer_proc.daemon = True
 
@@ -240,7 +258,17 @@ def parse(pathname: str, output_dir: str, recursive: bool = False) -> tuple:
     # Like threading, we have a join() method that synchronizes our program
     producer_proc.join()
 
+    # Go through all the csv files created
+    csvs_list = []
+    while True:
+        if csvs.empty():
+            break
+
+        csvs_list.append(csvs.get())
+
     print("Parent process exiting...")
+
+    return csvs_list
 
 
 @program.command(name="parse")

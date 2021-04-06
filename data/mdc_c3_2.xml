@@ -15,7 +15,7 @@
             <nedn>DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1</nedn>
         </neid>
         <mi>
-            <mts>20000301141430</mts>
+            <mts>20000301141500</mts>
             <gp>900</gp>
             <mt p="1">attTCHSeizures</mt>
             <mt p="2">succTCHSeizures</mt>
