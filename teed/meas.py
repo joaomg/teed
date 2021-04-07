@@ -273,7 +273,7 @@ def parse(pathname: str, output_dir: str, recursive: bool = False) -> list:
 
 @program.command(name="parse")
 def parse_program(pathname: str, output_dir: str, recursive: bool = False) -> None:
-    """Parse Mdc/Meas files returneb by pathname glob and
+    """Parse Mdc files returneb by pathname glob and
 
     place it's content in output directories CSV files
 
