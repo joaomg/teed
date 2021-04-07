@@ -1,4 +1,3 @@
-#
 # python -m teed bulkcm parse data/bulkcm_empty.xml data
 # python -m teed bulkcm parse data/bulkcm_with_header_footer.xml data
 # python -m teed bulkcm parse data/bulkcm_with_vsdatacontainer.xml data
