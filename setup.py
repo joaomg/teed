@@ -28,7 +28,7 @@ TESTS_REQUIRE = [
 EXTRAS_REQUIRE = {
     "dev": TESTS_REQUIRE,
 }
-INSTALL_REQUIRES = ["lxml>=4.6.2", "typer>=0.3.2", "pyyaml>=5.4.1"]
+INSTALL_REQUIRES = ["lxml>=4.6.3", "typer>=0.3.2", "pyyaml>=5.4.1"]
 README = read("README.md")
 VERSION = read(PACKAGE, "assets", "VERSION")
 PACKAGES = find_packages(exclude=["tests"])
@@ -58,10 +58,11 @@ setup(
         "telco data engineering",
         "telco cm",
         "telco pm",
-        "telco bulkcm",
-        "frictionless data",
-        "data package",
-        "tabular data package",
+        "bulkcm",
+        "meas",
+        "mdc",
+        "ETSI",
+        "3gpp",
     ],
     classifiers=[
         "Development Status :: 0 - Alpha",

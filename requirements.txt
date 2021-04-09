@@ -24,6 +24,6 @@ snowballstemmer==2.1.0
 -e git+https://github.com/joaomg/teed.git@0610db30cabf83ea6b185b86154ed003c443baa8#egg=teed
 toml==0.10.2
 typed-ast==1.4.2
-typer==0.3.2
+typer>=0.3.2
 typing-extensions==3.7.4.3
 urllib3==1.26.4
