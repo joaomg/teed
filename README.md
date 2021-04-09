@@ -66,9 +66,11 @@ Or using them in data pipelines.
 
 ### Documentation
 
-[bulkcm](teed/BULKCM.md)
+Probe, split and extract configuration content from [bulkcm](https://github.com/joaomg/teed/blob/main/teed/BULKCM.md) XML files.
 
-[meas](teed/MEAS.md)
+Extract performance data from [meas](https://github.com/joaomg/teed/blob/main/teed/MEAS.md) XML files.
+
+How to [build](https://github.com/joaomg/teed/blob/main/BUILD.md) teed.
 
 ### License 
 
