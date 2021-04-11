@@ -77,4 +77,5 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Text Processing :: Markup :: XML",
     ],
+    python_requires=">=3.8",
 )
