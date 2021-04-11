@@ -94,11 +94,6 @@ The former extracting content from telco raw files to CSV.
 
 And the later validating, cleaning and transforming data into a query ready system (parquet, RDBMS).
 
-Telco raw files
-teed parsing
-CSV files
-frictionless-py
-
     +---------------+
     |Telco raw files|
     |               |    
@@ -121,6 +116,6 @@ frictionless-py
     |     RDBMs     |
     +---------------+
 
-Much alike to the work done by PUDL, and Frictionless Data itself, in [Frictionless Public Utility Data - A Pilot Study](https://frictionlessdata.io/blog/2020/03/18/frictionless-data-pilot-study).
+Much alike to the work done by PUDL, with Frictionless Data itself, in [Frictionless Public Utility Data - A Pilot Study](https://frictionlessdata.io/blog/2020/03/18/frictionless-data-pilot-study).
 
 Take a look at [PUDL](https://github.com/catalyst-cooperative/pudl) code.
