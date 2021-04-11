@@ -54,3 +54,16 @@ Install teed from the test Python Package Index (https://test.pypi.org/simple/)
 ```shell
 pip install -i https://test.pypi.org/simple/ teed
 ```
+
+### Use teed
+
+In console:
+```shell
+python -m teed bulkcm parse data/bulkcm.xml data
+```
+
+As a python library:
+```python
+from teed import meas
+meas.parse("data/mdc*xml", "data")
+```
