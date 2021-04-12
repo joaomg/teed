@@ -1,34 +1,39 @@
 # teed
+
+[![Registry](https://img.shields.io/static/v1?label=pipy&message=v0.0.6&color=informational)](https://pypi.python.org/pypi/teed)
+[![Codebase](https://img.shields.io/badge/github-main-brightgreen)](https://github.com/joaomg/teed)
+
 Telco engineering data library
 
 Probe and transform raw telco files into CSV.
 
-### A simple BulkCm file parsing
+## A simple BulkCm file parsing
 
 ```shell
-(env) joaomg@mypc:~/teed$ python -m teed bulkcm parse data/bulkcm.xml data
+joaomg@mypc:~/teed$ pip install teed
+joaomg@mypc:~/teed$ python -m teed bulkcm parse data/bulkcm.xml data
 Parsing data/bulkcm.xml
 Created data/ManagedElement.csv
 Created data/ManagementNode.csv
 Created data/SubNetwork.csv
 Time: 0:00:00.000856
-(env) joaomg@mypc:~/teed$
+joaomg@mypc:~/teed$
 ```
 
-### Install from source
+## Install from source
 ```shell
 git clone https://github.com/joaomg/teed.git
 cd teed
 pip install -e .
 ```
 
-### Probe a file
+## Probe a file
 
 ```shell
 python -m teed bulkcm probe data/bulkcm_with_vsdatacontainer.xml
 ```
 
-### Parse a file output it's content to CSV files
+## Parse a file output it's content to CSV files
 
 ```shell
 python -m teed bulkcm parse data/bulkcm_empty.xml data
@@ -36,7 +41,7 @@ python -m teed bulkcm parse data/bulkcm_with_header_footer.xml data
 python -m teed bulkcm parse data/bulkcm_with_vsdatacontainer.xml data
 ```
 
-### Usage
+## Usage
 
 Beside command-line teed can be used as a library:
 ```python
@@ -64,7 +69,7 @@ Take notice of these differences when calling the parsers from shell.
 
 Or using them in data pipelines.
 
-### Documentation
+## Documentation
 
 Probe, split and extract configuration content from [bulkcm](https://github.com/joaomg/teed/blob/main/teed/BULKCM.md) XML files.
 
@@ -72,19 +77,19 @@ Extract performance data from [meas](https://github.com/joaomg/teed/blob/main/te
 
 How to [build](https://github.com/joaomg/teed/blob/main/BUILD.md) teed.
 
-### License 
+## License 
 
 The teed library is licensed under:
 
 GNU Affero General Public License v3.0
 
-### On ETSI references and usage rights
+## On ETSI references and usage rights
 
 https://www.etsi.org/intellectual-property-rights
 
 https://www.etsi.org/images/files/IPR/etsi-ipr-policy.pdf
 
-### Background
+## Background
 
 The teed library aims to be a comprehensive parser toolkit for telecommunications engineering data.
 
