@@ -4,13 +4,13 @@
 # python -m teed meas parse "data/meas*xml" data
 
 # python -m teed meas parse "benchmark/eric_rnc/A*xml" tmp
-# Parent process exiting...
+# Producer and consumer done, exiting.
 # Duration(s): 20.945605682000178
 # python -m teed meas parse "benchmark/eric_nodeb/A*xml" tmp
-# Parent process exiting...
+# Producer and consumer done, exiting.
 # Duration(s): 15.023600272999829
 # python -m teed meas parse "benchmark/*/A*xml" tmp --recursive
-# Parent process exiting...
+# Producer and consumer done, exiting.
 # Duration(s): 35.324785770999824
 # Using top we've seen low memory usage, even though two python processes are used: producer and consumer
 
@@ -19,10 +19,12 @@ import csv
 import glob
 import hashlib
 import os
+import signal
 import time
 from datetime import datetime, timedelta
 from multiprocessing import Lock, Process, Queue
 from os import path
+from queue import Empty
 
 import typer
 
@@ -89,7 +91,7 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
                         # <mi>
                         #   <mts>20000301141430</mts>
                         #   <gp>900</gp>
-                        ts = mi.find("mts").text
+                        ts = mi.find("mts").text[:14]
                         gp = mi.find("gp").text
 
                         datetime_ts = datetime.strptime(ts, "%Y%m%d%H%M%S")
@@ -168,107 +170,161 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
 
                 element.clear(keep_tail=False)
 
+    # place a DONE signal in the queue
+    # the consumer will continue to execute
+    # until this item/signal is received
+    queue.put("DONE")
 
-def consume(queue: Queue, lock: Lock, output_dir: str, csvs: Queue):
+
+def consume(queue: Queue, lock: Lock, output_dir: str):
+    """Serialize tables received from queue to CSV file.
+
+    Place the CSV file in the output dir (output_dir).
+
+    Create file if doesn't exist and appends data.
+
+    Take notice: it doesn't delete the file previously to the serialization.
+    """
+
     writers = {}  # maps the node_key to it's writer
 
     with lock:
         print(f"Consumer starting {os.getpid()}")
 
     while True:
-        table = queue.get()
+        try:
+            item = queue.get(block=True, timeout=0.05)
 
-        moid_1st = table["rows"][0][1]  # RncFunction=RF-1,UtranCell=Gbg-997
-        table_name = (moid_1st.split(",")[-1]).split("=")[0]  # UtranCell
-        columns = table["mts"]
-        gp = table["gp"]
+            # exit while loop on receiving DONE item
+            if item == "DONE":
+                break
 
-        table_hash = hashlib.md5("".join(columns).encode()).hexdigest()
-        table_key = f"{table_name}_{gp}_{table_hash}"
+            if item == "STOP":
+                with lock:
+                    print("Stop received!")
 
-        csv_path = path.normpath(
-            f"{output_dir}{path.sep}{table_name}-{gp}-{table_hash}.csv"
-        )
+                break
 
-        if not (path.exists(csv_path)):
-            # create new file
-            csv_file = open(csv_path, mode="w", newline="")
+            moid_1st = item["rows"][0][1]  # RncFunction=RF-1,UtranCell=Gbg-997
+            table_name = (moid_1st.split(",")[-1]).split("=")[0]  # UtranCell
+            columns = item["mts"]
+            gp = item["gp"]
 
+            table_hash = hashlib.md5("".join(columns).encode()).hexdigest()
+            table_key = f"{table_name}_{gp}_{table_hash}"
+
+            csv_path = path.normpath(
+                f"{output_dir}{path.sep}{table_name}-{gp}-{table_hash}.csv"
+            )
+
+            if not (path.exists(csv_path)):
+                # create new file
+                csv_file = open(csv_path, mode="w", newline="")
+
+                msg = f"Created {csv_path}"
+                with lock:
+                    print(msg)
+
+                writer = csv.writer(csv_file)
+                header = ["ST", "DN"] + columns
+                writer.writerow(header)
+
+                writers[table_key] = writer
+
+            elif table_key not in writers:
+                # append to end of file
+                csv_file = open(csv_path, mode="a", newline="")
+
+                msg = f"Append {csv_path}"
+                with lock:
+                    print(msg)
+
+                writer = csv.writer(csv_file)
+                writers[table_key] = writer
+
+            else:
+                # file and writer exist
+                # get previously created writer
+                writer = writers.get(table_key)
+
+            # serialize rows to csv file
+            for row in item["rows"]:
+                writer.writerow(row)
+
+            # flush the data to disk
+            csv_file.flush()
+
+        except KeyboardInterrupt:
             with lock:
-                print(f"Created {csv_path}")
+                print("KeyboardInterrupt received, stopping!")
 
-            writer = csv.writer(csv_file)
-            header = ["ST", "DN"] + columns
-            writer.writerow(header)
+            if csv_file:
+                csv_file.flush()
 
-            writers[table_key] = writer
-            csvs.put(csv_path)
-
-        elif table_key not in writers:
-            # append to end of file
-            csv_file = open(csv_path, mode="a", newline="")
-
-            with lock:
-                print(f"Append {csv_path}")
-
-            writer = csv.writer(csv_file)
-            writers[table_key] = writer
-
-        else:
-            # file and writer exist
-            # get previously created writer
-            writer = writers.get(table_key)
-
-        # serialize rows to csv file
-        for row in table["rows"]:
-            writer.writerow(row)
-
-        # flush the data to disk
-        csv_file.flush()
-
-
-def parse(pathname: str, output_dir: str, recursive: bool = False) -> list:
-
-    # Create the csv files Queue object
-    csvs = Queue()
-
-    # Create the procuder -> consumer Queue object
-    queue = Queue()
-
-    # Create a lock object to synchronize resource access
-    lock = Lock()
-
-    producer_proc = None
-    consumer_proc = None
-
-    producer_proc = Process(
-        target=produce, name="producer", args=(queue, lock, pathname, recursive)
-    )
-
-    consumer_proc = Process(
-        target=consume, name="consumer", args=(queue, lock, output_dir, csvs)
-    )
-    consumer_proc.daemon = True
-
-    # Start the producer and consumer
-    # The Python VM will launch new independent processes for each Process object
-    producer_proc.start()
-    consumer_proc.start()
-
-    # Like threading, we have a join() method that synchronizes our program
-    producer_proc.join()
-
-    # Go through all the csv files created
-    csvs_list = []
-    while True:
-        if csvs.empty():
             break
 
-        csvs_list.append(csvs.get())
+        except Empty:
+            continue
 
-    print("Parent process exiting...")
 
-    return csvs_list
+def handler_stop(signum, frame):
+    """Stop signal handler"""
+
+    raise TeedException(f"Signal handler called with signal {signum}")
+
+
+def parse(pathname: str, output_dir: str, recursive: bool = False):
+    """Go through the files in pathname, extracts data
+
+    and places it in queue. The items in the queue are serialized
+
+    to CSV files in disk by a daemon consumer process.
+
+    The producer, the parent process, waits for the consumer to finish.
+
+    This method is based on the example found in:
+
+    https://stackoverflow.com/questions/11515944/how-to-use-multiprocessing-queue-in-python
+    """
+
+    # items queue
+    queue = Queue()
+
+    # control resource access using a lock
+    lock = Lock()
+
+    # Use signal handler
+    signal.signal(signal.SIGTERM, handler_stop)
+
+    try:
+
+        # the consumer process
+        consumer_proc = None
+
+        consumer_proc = Process(
+            target=consume, name="consumer", args=(queue, lock, output_dir)
+        )
+        consumer_proc.daemon = True
+
+        # Start the consumer
+        # The Python VM will launch new independent processes for each Process object
+        consumer_proc.start()
+
+        # Go through the files retreived from pathname
+        # and start producing items to the queue
+        produce(queue, lock, pathname)
+
+    except KeyboardInterrupt:
+        queue.put("STOP")
+
+    except TeedException as e:
+        queue.put("STOP")
+        print(e)
+
+    # Wait for the consumer to end
+    consumer_proc.join()
+
+    print("Producer and consumer done, exiting.")
 
 
 @program.command(name="parse")

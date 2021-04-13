@@ -15,9 +15,7 @@ def test_meas_parse_program():
     except FileNotFoundError:
         pass
 
-    csvs_list = meas.parse(pathname, output_dir, recursive)
-    assert len(csvs_list) == 1
-    assert csvs_list[0] == "data/UtranCell-900-9995823c30bcf308b91ab0b66313e86a.csv"
+    meas.parse(pathname, output_dir, recursive)
 
     with open(
         "data/UtranCell-900-9995823c30bcf308b91ab0b66313e86a.csv", newline=""
