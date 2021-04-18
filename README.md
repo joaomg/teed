@@ -121,6 +121,6 @@ And the later validating, cleaning and transforming data into a query ready syst
     |     RDBMs     |
     +---------------+
 
-Much alike to the work done by PUDL, with Frictionless Data itself, in [Frictionless Public Utility Data - A Pilot Study](https://frictionlessdata.io/blog/2020/03/18/frictionless-data-pilot-study).
+Much alike to the work done by PUDL, with [Frictionless Data](https://frictionlessdata.io/) itself, in [Frictionless Public Utility Data - A Pilot Study](https://frictionlessdata.io/blog/2020/03/18/frictionless-data-pilot-study).
 
 Take a look at [PUDL](https://github.com/catalyst-cooperative/pudl) code.

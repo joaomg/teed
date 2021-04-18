@@ -1,4 +1,7 @@
 # meas
+
+## Description
+
 The meas module deliveres parsing of 32.401 specification, version 5.5.0 (2005-03) XML files.
 
 Currently implementing for the DTD based XML format:
@@ -24,11 +27,11 @@ Currently implementing for the DTD based XML format:
 </mdc>      
 ```   
 
-Files samples retrieved from:
+### Files samples retrieved
 
 https://www.etsi.org/deliver/etsi_ts/132400_132499/132401/05.05.00_60/ts_132401v050500p.pdf
 
-The latest specification is:
+### The latest specification
 
 https://www.etsi.org/deliver/etsi_ts/132400_132499/132401/16.00.00_60/ts_132401v160000p.pdf
 
@@ -46,7 +49,7 @@ Commands:
 (env) joaomg@mypc:~/teed$ 
 ```
 
-Parse is the only meas subcommand:
+### Parse is the only meas subcommand
 
 ```shell
 (env) joaomg@mypc:~/teed$ python -m teed meas parse --help
@@ -72,7 +75,7 @@ Options:
 (env) joaomg@mypc:~/teed$ 
 ```
 
-Parsing a single file:
+### Parsing a single file
 
 ```shell
 env) joaomg@mypc:~/teed$ python -m teed meas parse data/mdc_c3_1.xml data
@@ -81,11 +84,11 @@ Parsing data/mdc_c3_1.xml
 Consumer starting 8171
 Placing UtranCell
 Append data/UtranCell-900-9995823c30bcf308b91ab0b66313e86a.csv
-Parent process exiting...
+Producer and consumer done, exiting.
 Duration(s): 0.011379859000044235
 ``` 
 
-Parsing all mdc*xml files and output CSVs to the same directory (data):
+### Parsing all mdc*xml files and output CSVs to the same directory (data)
 
 ```shell
 (env) joaomg@mypc:~/teed$ python -m teed meas parse "data/mdc*xml" data
@@ -96,7 +99,24 @@ Placing UtranCell
 Parsing data/mdc_c3_1.xml
 Append data/UtranCell-900-9995823c30bcf308b91ab0b66313e86a.csv
 Placing UtranCell
-Parent process exiting...
+Producer and consumer done, exiting.
 Duration(s): 0.011365840000507887
 (env) joaomg@mypc:~/teed$ 
 ```
+
+## References
+
+### Performance measurement: File format definition 
+(3GPP TS 32.432 version 16.0.0 Release 16)
+
+https://www.etsi.org/deliver/etsi_ts/132400_132499/132432/16.00.00_60/ts_132432v160000p.pdf
+
+### Performance measurement: eXtensible Markup Language (XML) file format definition 
+(3GPP TS 32.435 version 16.0.0 Release 16)
+
+https://www.etsi.org/deliver/etsi_ts/132400_132499/132435/16.00.00_60/ts_132435v160000p.pdf
+
+### Performance measurement: Abstract Syntax Notation 1 (ASN.1) file format definition
+(3GPP TS 32.436 version 16.0.0 Release 16)
+
+https://www.etsi.org/deliver/etsi_ts/132400_132499/132436/16.00.00_60/ts_132436v160000p.pdf
