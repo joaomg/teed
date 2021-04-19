@@ -152,12 +152,12 @@ def test_parse():
         }
 
     with open(
-        "data/ManagedElement-2ad0c41c0141dad76eae0425d952470c.csv", newline=""
+        "data/ManagedElement-2ce5d8fae91842f854b00844e05fdd6b.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == [
-            "node_id",
-            "node_key",
+            "SubNetwork",
+            "ManagedElement",
             "managedElementType",
             "userLabel",
             "vendorName",
@@ -166,8 +166,8 @@ def test_parse():
         ]
         assert list(reader) == [
             {
-                "node_id": "1",
-                "node_key": "[{'SubNetwork': '1'}, {'ManagedElement': '1'}]",
+                "SubNetwork": "1",
+                "ManagedElement": "1",
                 "managedElementType": "RNC",
                 "userLabel": "Paris RN1",
                 "vendorName": "Company NN",
@@ -175,8 +175,8 @@ def test_parse():
                 "locationName": "Champ de Mars",
             },
             {
-                "node_id": "2",
-                "node_key": "[{'SubNetwork': '1'}, {'ManagedElement': '2'}]",
+                "SubNetwork": "1",
+                "ManagedElement": "2",
                 "managedElementType": "RNC",
                 "userLabel": "Paris RN2",
                 "vendorName": "Company NN",
@@ -186,12 +186,12 @@ def test_parse():
         ]
 
     with open(
-        "data/ManagementNode-bcbc45d45148e76ee80ad0ce9110eac7.csv", newline=""
+        "data/ManagementNode-cb742e095d2f7bda9622720bf9237682.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == [
-            "node_id",
-            "node_key",
+            "SubNetwork",
+            "ManagementNode",
             "userLabel",
             "vendorName",
             "userDefinedState",
@@ -199,8 +199,8 @@ def test_parse():
         ]
         assert list(reader) == [
             {
-                "node_id": "1",
-                "node_key": "[{'SubNetwork': '1'}, {'ManagementNode': '1'}]",
+                "SubNetwork": "1",
+                "ManagementNode": "1",
                 "userLabel": "Paris MN1",
                 "vendorName": "Company NN",
                 "userDefinedState": "commercial",

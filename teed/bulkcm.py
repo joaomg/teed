@@ -91,7 +91,7 @@ class BulkCmParser:
 
         self._node_attributes = {}
         self._node_queue = []
-        self._node_path = []
+        self._node_path = {}
         self._nodes = []
 
         # vsData handling
@@ -135,17 +135,11 @@ class BulkCmParser:
             pass
 
         elif len(attrib) > 0:
-            node_id = attrib.get("id").strip()
-
             self._node_queue.append(localname)
-            self._node_path.append({localname: node_id})
-            self._nodes.append(
-                {
-                    "node_id": node_id,
-                    "node_name": localname,
-                    "node_key": deepcopy(self._node_path),
-                }
-            )
+            self._node_path[localname] = attrib.get("id").strip()
+            node = deepcopy(self._node_path)
+            node.update(node_name=localname)
+            self._nodes.append(node)
 
             if localname == "VsDataContainer":
                 self._is_vs_data = True
@@ -170,15 +164,18 @@ class BulkCmParser:
             # replace the previous node_name
             vs_data_type = "".join(self._text)
             self._vs_data_type = vs_data_type
-            vs_id = self._node_path.pop()["VsDataContainer"]
+            vs_id = self._node_path.pop("VsDataContainer")
 
             # change VsDataContainer node_name to the vs_data_type
             # and change the node_path to vs_data_type
             # while preserving the vs_id
             # update the node_key in the latest node
-            self._node_path.append({vs_data_type: vs_id})
-            self._nodes[-1]["node_name"] = vs_data_type
-            self._nodes[-1]["node_key"] = deepcopy(self._node_path)
+            self._node_path[vs_data_type] = vs_id
+
+            node = self._nodes[-1]
+            node.pop("VsDataContainer")
+            node["node_name"] = vs_data_type
+            node.update(deepcopy(self._node_path))
 
             self._text = []
 
@@ -202,7 +199,7 @@ class BulkCmParser:
             self._vs_data_type = None
 
             # end of node
-            self._node_path.pop()
+            self._node_path.popitem()
 
         else:
             node = self._node_queue.pop()
@@ -218,7 +215,7 @@ class BulkCmParser:
 
             else:
                 # end of node
-                self._node_path.pop()
+                self._node_path.popitem()
 
             self._text = []
 
