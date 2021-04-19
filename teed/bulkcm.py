@@ -91,7 +91,7 @@ class BulkCmParser:
 
         self._node_attributes = {}
         self._node_queue = []
-        self._node_path = []
+        self._node_path = {}
         self._nodes = []
 
         # vsData handling
@@ -135,15 +135,13 @@ class BulkCmParser:
             pass
 
         elif len(attrib) > 0:
-            node_id = attrib.get("id").strip()
-
             self._node_queue.append(localname)
-            self._node_path.append({localname: node_id})
+            self._node_path[localname] = attrib.get("id").strip()
             self._nodes.append(
                 {
-                    "node_id": node_id,
                     "node_name": localname,
-                    "node_key": deepcopy(self._node_path),
+                    "node_path": deepcopy(self._node_path),
+                    "node_values": {},
                 }
             )
 
@@ -160,7 +158,7 @@ class BulkCmParser:
             # </xn:attributes>
             # not a attribute, localname is a node
             node = self._nodes.pop()
-            node.update(self._node_attributes)
+            node["node_values"] = self._node_attributes
             self._stream.send(node)
 
             self._node_attributes = {}
@@ -170,15 +168,17 @@ class BulkCmParser:
             # replace the previous node_name
             vs_data_type = "".join(self._text)
             self._vs_data_type = vs_data_type
-            vs_id = self._node_path.pop()["VsDataContainer"]
+            vs_id = self._node_path.pop("VsDataContainer")
 
             # change VsDataContainer node_name to the vs_data_type
             # and change the node_path to vs_data_type
             # while preserving the vs_id
             # update the node_key in the latest node
-            self._node_path.append({vs_data_type: vs_id})
-            self._nodes[-1]["node_name"] = vs_data_type
-            self._nodes[-1]["node_key"] = deepcopy(self._node_path)
+            self._node_path[vs_data_type] = vs_id
+
+            node = self._nodes[-1]
+            node["node_name"] = vs_data_type
+            node["node_path"] = deepcopy(self._node_path)
 
             self._text = []
 
@@ -202,7 +202,7 @@ class BulkCmParser:
             self._vs_data_type = None
 
             # end of node
-            self._node_path.pop()
+            self._node_path.popitem()
 
         else:
             node = self._node_queue.pop()
@@ -218,7 +218,7 @@ class BulkCmParser:
 
             else:
                 # end of node
-                self._node_path.pop()
+                self._node_path.popitem()
 
             self._text = []
 
@@ -261,10 +261,13 @@ class BulkCmParser:
             while True:
                 node = yield
                 node_name = node.pop("node_name")
+                node_path = node.pop("node_path")
+                node_values = node.pop("node_values")
                 # @@@ this md5 hash is expensive, and runs for each node
                 # @@@ analyze and find a more efficient method
-                node_hash = hashlib.md5("".join(list(node.keys())).encode()).hexdigest()
-                node_key = f"{node_name}_{node_hash}"
+                columns = list(node_path.keys()) + list(node_values.keys())
+                node_hash = hashlib.md5("".join(columns).encode()).hexdigest()
+                node_key = f"{node_name}-{node_hash}"
 
                 if node_key not in writers:
                     # create new file
@@ -276,8 +279,7 @@ class BulkCmParser:
 
                     print(f"Created {csv_path}")
 
-                    attributes = node.keys()
-                    writer = csv.DictWriter(csv_file, fieldnames=attributes)
+                    writer = csv.DictWriter(csv_file, fieldnames=columns)
                     writer.writeheader()
 
                     writers[node_key] = writer
@@ -286,7 +288,8 @@ class BulkCmParser:
                     # get previously created writer
                     writer = writers.get(node_key)
 
-                writer.writerow(node)
+                node_path.update(node_values)
+                writer.writerow(node_path)
 
         except StopIteration:
             for writer in writers:

@@ -1,0 +1,3 @@
+SubNetwork,ManagedElement,managedElementType,userLabel,vendorName,userDefinedState,locationName
+1,1,RNC,Paris RN1,Company NN,commercial,Champ de Mars
+1,2,RNC,Paris RN2,Company NN,commercial,Concorde
