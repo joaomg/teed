@@ -5,9 +5,9 @@
     xmlns:vsRHO11="http://www.companyNN.com/xmlschemas/NNRncHandOver.1.1">
     <configData dnPrefix="DC=a1.companyNN.com">
         <xn:SubNetwork id="1">
-            <xn:ManagedElement id="1">
-                <un:RncFunction id="1">
-                    <xn:VsDataContainer id="Cell1">
+            <xn:ManagedElement id="2">
+                <un:RncFunction id="3">
+                    <xn:VsDataContainer id="Cell4">
                         <xn:attributes>
                             <xn:vsDataType>vsDataUtranCell</xn:vsDataType>
                             <xn:vsDataFormatVersion>vsDataUtranCell.1.1</xn:vsDataFormatVersion>
@@ -16,7 +16,7 @@
                                 <vsRHO11:pcpichpower>222</vsRHO11:pcpichpower>
                             </vsRHO11:vsDataUtranCell>
                         </xn:attributes>
-                        <xn:VsDataContainer id="1">
+                        <xn:VsDataContainer id="5">
                             <xn:attributes>
                                 <xn:vsDataType>vsDataRncHandOver</xn:vsDataType>
                                 <xn:vsDataFormatVersion>NNRncHandOver.1.1</xn:vsDataFormatVersion>
