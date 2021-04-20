@@ -87,3 +87,90 @@ def test_meas_parse_program():
                 "succImmediateAssignProcs": "789",
             },
         ]
+
+    # test consume_ldn_natural_key
+    # this consumer produces tabular
+    # like CSV files, where the NEDN and LDN
+    # are split into it's parts
+    # the CSV size is much smaller
+    # but the parser takes longer to run
+    pathname = "data/mdc_c3_1.xml"
+    output_dir = "data"
+    recursive = False
+
+    try:
+        os.remove("data/UtranCell-900-5ff3d8a40d18614e53848f10f7a233c7.csv")
+    except FileNotFoundError:
+        pass
+
+    meas.parse(
+        pathname, output_dir, recursive, consume_target=meas.consume_ldn_natural_key
+    )
+
+    with open(
+        "data/UtranCell-900-5ff3d8a40d18614e53848f10f7a233c7.csv", newline=""
+    ) as csv_file:
+        reader = csv.reader(csv_file)
+
+        assert list(reader) == [
+            [
+                "ST",
+                "DC",
+                "SubNetwork",
+                "IRPAgent",
+                "SubNetwork",
+                "MeContext",
+                "ManagedElement",
+                "RncFunction",
+                "UtranCell",
+                "attTCHSeizures",
+                "succTCHSeizures",
+                "attImmediateAssignProcs",
+                "succImmediateAssignProcs",
+            ],
+            [
+                "20000301140000",
+                "a1.companyNN.com",
+                "1",
+                "1",
+                "CountryNN",
+                "MEC-Gbg1",
+                "RNC-Gbg-1",
+                "RF-1",
+                "Gbg-997",
+                "234",
+                "345",
+                "567",
+                "789",
+            ],
+            [
+                "20000301140000",
+                "a1.companyNN.com",
+                "1",
+                "1",
+                "CountryNN",
+                "MEC-Gbg1",
+                "RNC-Gbg-1",
+                "RF-1",
+                "Gbg-998",
+                "890",
+                "901",
+                "123",
+                "234",
+            ],
+            [
+                "20000301140000",
+                "a1.companyNN.com",
+                "1",
+                "1",
+                "CountryNN",
+                "MEC-Gbg1",
+                "RNC-Gbg-1",
+                "RF-1",
+                "Gbg-999",
+                "456",
+                "567",
+                "678",
+                "789",
+            ],
+        ]
