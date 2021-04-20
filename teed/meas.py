@@ -124,10 +124,8 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
                         # ...
                         table["rows"] = []
                         for mv in mi.iterfind("mv"):
-                            moid = mv.find("moid").text
-                            # create the DN from the concatenation of nedn and moid
-                            dn = (f"{nedn},{moid}").strip(",")
-                            row = [meas_ts, dn]
+                            ldn = mv.find("moid").text
+                            row = [meas_ts, nedn, ldn]
                             for r in mv.iterfind("r"):
                                 row.append(r.text)
 
@@ -136,7 +134,7 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
                         # if there're rows in table
                         # place it in the queue
                         if table["rows"] != [] and mts != []:
-                            table_name = (moid.split(",")[-1]).split("=")[0]  # UtranCell
+                            table_name = (ldn.split(",")[-1]).split("=")[0]  # UtranCell
                             with lock:
                                 print(f"Placing {table_name}")
 
@@ -184,6 +182,12 @@ def consume(queue: Queue, lock: Lock, output_dir: str):
     Create file if doesn't exist and appends data.
 
     Take notice: it doesn't delete the file previously to the serialization.
+
+    The CSV contain at least three columns, in this exact order: ST, NEDN and LDN.
+
+    ST = measurement start time (YYYYMMDDHHMMSS)
+    NEDN = network element distinguished name (A=a,B=b,C=c)
+    LDN = measured object distinguished name, within the context of the NEDN (A=a,B=b,C=c)
     """
 
     writers = {}  # maps the node_key to it's writer
@@ -205,7 +209,7 @@ def consume(queue: Queue, lock: Lock, output_dir: str):
 
                 break
 
-            moid_1st = item["rows"][0][1]  # RncFunction=RF-1,UtranCell=Gbg-997
+            moid_1st = item["rows"][0][2]  # RncFunction=RF-1,UtranCell=Gbg-997
             table_name = (moid_1st.split(",")[-1]).split("=")[0]  # UtranCell
             columns = item["mts"]
             gp = item["gp"]
@@ -226,7 +230,10 @@ def consume(queue: Queue, lock: Lock, output_dir: str):
                     print(msg)
 
                 writer = csv.writer(csv_file)
-                header = ["ST", "DN"] + columns
+                # ST = measurement start time
+                # NEDN = network element distinguished name
+                # LDN = measured object distinguished name, within the context of the NEDN
+                header = ["ST", "NEDN", "LDN"] + columns
                 writer.writerow(header)
 
                 writers[table_key] = writer

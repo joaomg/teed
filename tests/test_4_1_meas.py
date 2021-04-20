@@ -23,7 +23,8 @@ def test_meas_parse_program():
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == [
             "ST",
-            "DN",
+            "NEDN",
+            "LDN",
             "attTCHSeizures",
             "succTCHSeizures",
             "attImmediateAssignProcs",
@@ -33,7 +34,8 @@ def test_meas_parse_program():
         assert list(reader) == [
             {
                 "ST": "20000301140000",
-                "DN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1,RncFunction=RF-1,UtranCell=Gbg-997",
+                "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
+                "LDN": "RncFunction=RF-1,UtranCell=Gbg-997",
                 "attTCHSeizures": "234",
                 "succTCHSeizures": "345",
                 "attImmediateAssignProcs": "567",
@@ -41,7 +43,8 @@ def test_meas_parse_program():
             },
             {
                 "ST": "20000301140000",
-                "DN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1,RncFunction=RF-1,UtranCell=Gbg-998",
+                "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
+                "LDN": "RncFunction=RF-1,UtranCell=Gbg-998",
                 "attTCHSeizures": "890",
                 "succTCHSeizures": "901",
                 "attImmediateAssignProcs": "123",
@@ -49,7 +52,8 @@ def test_meas_parse_program():
             },
             {
                 "ST": "20000301140000",
-                "DN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1,RncFunction=RF-1,UtranCell=Gbg-999",
+                "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
+                "LDN": "RncFunction=RF-1,UtranCell=Gbg-999",
                 "attTCHSeizures": "456",
                 "succTCHSeizures": "567",
                 "attImmediateAssignProcs": "678",
@@ -57,7 +61,8 @@ def test_meas_parse_program():
             },
             {
                 "ST": "20000301140000",
-                "DN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1,RncFunction=RF-1,UtranCell=Gbg-997",
+                "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
+                "LDN": "RncFunction=RF-1,UtranCell=Gbg-997",
                 "attTCHSeizures": "234",
                 "succTCHSeizures": "345",
                 "attImmediateAssignProcs": "567",
@@ -65,7 +70,8 @@ def test_meas_parse_program():
             },
             {
                 "ST": "20000301140000",
-                "DN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1,RncFunction=RF-1,UtranCell=Gbg-998",
+                "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
+                "LDN": "RncFunction=RF-1,UtranCell=Gbg-998",
                 "attTCHSeizures": "890",
                 "succTCHSeizures": "901",
                 "attImmediateAssignProcs": "123",
@@ -73,7 +79,8 @@ def test_meas_parse_program():
             },
             {
                 "ST": "20000301140000",
-                "DN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1,RncFunction=RF-1,UtranCell=Gbg-999",
+                "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
+                "LDN": "RncFunction=RF-1,UtranCell=Gbg-999",
                 "attTCHSeizures": "456",
                 "succTCHSeizures": "567",
                 "attImmediateAssignProcs": "678",
