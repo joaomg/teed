@@ -31,4 +31,4 @@ release:
 
 test:
 	make lint
-	pytest --cov ${PACKAGE} --cov-report term-missing --cov-fail-under 80
+	python -m pytest --cov ${PACKAGE} --cov-report term-missing --cov-fail-under 80
