@@ -75,7 +75,12 @@ class BulkCmParser:
         nodes stream (Generator): stream
     """
 
-    def __init__(self, stream: Generator):
+    def __init__(
+        self,
+        stream: Generator,
+        include_elements: list = [],
+        exclude_elements: list = [],
+    ):
 
         # bulkcm general file data
         self._metadata = {}
@@ -102,6 +107,10 @@ class BulkCmParser:
         # set it ready to receive nodes
         self._stream = stream
         next(stream)
+
+        # include/exclude elements
+        self._include_elements = list(include_elements)
+        self._exclude_elements = list(exclude_elements)
 
     def start(self, tag, attrib):
         # flow-control using the element tag local name
@@ -135,6 +144,11 @@ class BulkCmParser:
             pass
 
         elif len(attrib) > 0:
+
+            if "*" in self._exclude_elements and localname not in self._include_elements:
+                if localname not in self._exclude_elements:
+                    self._exclude_elements.append(localname)
+
             self._node_queue.append(localname)
             self._node_path[localname] = attrib.get("id").strip()
             self._nodes.append(
@@ -157,9 +171,12 @@ class BulkCmParser:
         if localname == "attributes":
             # </xn:attributes>
             # not a attribute, localname is a node
+
             node = self._nodes.pop()
-            node["node_values"] = self._node_attributes
-            self._stream.send(node)
+            if node["node_name"] not in self._exclude_elements:
+                # node.update(self._node_attributes)
+                node["node_values"] = self._node_attributes
+                self._stream.send(node)
 
             self._node_attributes = {}
             self._is_attributes = False
@@ -181,6 +198,13 @@ class BulkCmParser:
             node["node_path"] = deepcopy(self._node_path)
 
             self._text = []
+
+            if (
+                "*" in self._exclude_elements
+                and vs_data_type not in self._include_elements
+            ):
+                if vs_data_type not in self._exclude_elements:
+                    self._exclude_elements.append(vs_data_type)
 
         elif localname == "vsDataFormatVersion":
             self._text = []
@@ -227,9 +251,11 @@ class BulkCmParser:
 
     def close(self):
 
-        # send all the nodes to stream
+        # send remaining nodes to stream
         for node in self._nodes:
-            self._stream.send(node)
+            node_name = node.get("node_name")
+            if node_name not in self._exclude_elements:
+                self._stream.send(node)
 
         # send close signal to
         # the stream generator
@@ -296,13 +322,21 @@ class BulkCmParser:
                 writer.close()
 
 
-def parse(file_path: str, output_dir: str, stream: Generator) -> tuple:
+def parse(
+    file_path: str,
+    output_dir: str,
+    stream: Generator,
+    include_elements: list = [],
+    exclude_elements: list = [],
+) -> tuple:
     """Parse BulkCm file and place it's content in output directories CSV files
 
     Parameters:
         bulkcm file path (str): file_path
         output directory (str): output_dir
         send parsed nodes to stream (Generator): stream
+        elements to parse (list): include_elements
+        elements to ignore (list): exclude_elements
 
     Returns:
         bulkcm metadata and parsing duration (dict, timedelta): (metadata, duration)
@@ -316,7 +350,7 @@ def parse(file_path: str, output_dir: str, stream: Generator) -> tuple:
         raise TeedException(f"Error, output directory {output_dir} doesn't exists")
 
     parser = etree.XMLParser(
-        target=BulkCmParser(stream),
+        target=BulkCmParser(stream, include_elements, exclude_elements),
         no_network=True,
         ns_clean=True,
         remove_blank_text=True,
@@ -349,7 +383,22 @@ def parse(file_path: str, output_dir: str, stream: Generator) -> tuple:
 
 
 @program.command(name="parse")
-def parse_program(file_path: str, output_dir: str) -> None:
+def parse_program(
+    file_path: str,
+    output_dir: str,
+    include_elements: List[str] = typer.Option(
+        [],
+        "--include-element",
+        "-ie",
+        help="Parse element",
+    ),
+    exclude_elements: List[str] = typer.Option(
+        [],
+        "--exlude-element",
+        "-ee",
+        help="Ignore element",
+    ),
+) -> None:
     """Parse BulkCm file and place it's content in output directories CSV files
 
     Command-line program for bulkcm.parse function
@@ -357,13 +406,17 @@ def parse_program(file_path: str, output_dir: str) -> None:
     Parameters:
         bulkcm file path (str): file_path
         output directory (str): output_dir
+        elements to parse (list): include_elements
+        elements to ignore (list): exclude_elements
     """
 
     try:
         # stream to csv files
         stream_csv = BulkCmParser.stream_to_csv(output_dir)
 
-        metadata, duration = parse(file_path, output_dir, stream_csv)
+        metadata, duration = parse(
+            file_path, output_dir, stream_csv, include_elements, exclude_elements
+        )
         print(f"Duration: {duration}")
     except TeedException as e:
         typer.secho(f"Error parsing {file_path}")

@@ -237,6 +237,85 @@ def test_parse():
             }
         ]
 
+    # exlude all elements -> nothing is processed
+    try:
+        os.remove("data/vsDataUtranCell-762627b0939d1ac04dadef2b58f194c1.csv")
+        os.remove("data/vsDataRncHandOver-430a850294cd3dd7ab5fac2a6e8b8c75.csv")
+        os.remove("data/SubNetwork-e3c968f12ec1ae219a7e2f9d7829a67d.csv")
+        os.remove("data/ManagedElement-e3c968f12ec1ae219a7e2f9d7829a67d.csv")
+        os.remove("data/RncFunction-e3c968f12ec1ae219a7e2f9d7829a67d.csv")
+    except FileNotFoundError:
+        pass
+
+    stream = bulkcm.BulkCmParser.stream_to_csv("data")
+    metadata, duration = bulkcm.parse(
+        "data/bulkcm_with_utrancell.xml", "data", stream, exclude_elements=["*"]
+    )
+
+    assert not (
+        os.path.exists("data/vsDataUtranCell-762627b0939d1ac04dadef2b58f194c1.csv")
+    )
+    assert not (
+        os.path.exists("data/vsDataRncHandOver-430a850294cd3dd7ab5fac2a6e8b8c75.csv")
+    )
+    assert not (os.path.exists("data/SubNetwork-e3c968f12ec1ae219a7e2f9d7829a67d.csv"))
+    assert not (
+        os.path.exists("data/ManagedElement-e3c968f12ec1ae219a7e2f9d7829a67d.csv")
+    )
+    assert not (os.path.exists("data/RncFunction-e3c968f12ec1ae219a7e2f9d7829a67d.csv"))
+
+    # exlude all elements except vsDataUtranCell
+    try:
+        os.remove("data/vsDataUtranCell-762627b0939d1ac04dadef2b58f194c1.csv")
+        os.remove("data/vsDataRncHandOver-430a850294cd3dd7ab5fac2a6e8b8c75.csv")
+        os.remove("data/SubNetwork-e3c968f12ec1ae219a7e2f9d7829a67d.csv")
+        os.remove("data/ManagedElement-e3c968f12ec1ae219a7e2f9d7829a67d.csv")
+        os.remove("data/RncFunction-e3c968f12ec1ae219a7e2f9d7829a67d.csv")
+    except FileNotFoundError:
+        pass
+
+    stream = bulkcm.BulkCmParser.stream_to_csv("data")
+    metadata, duration = bulkcm.parse(
+        "data/bulkcm_with_utrancell.xml",
+        "data",
+        stream,
+        include_elements=["vsDataUtranCell"],
+        exclude_elements=["*"],
+    )
+
+    assert os.path.exists("data/vsDataUtranCell-762627b0939d1ac04dadef2b58f194c1.csv")
+    with open(
+        "data/vsDataUtranCell-762627b0939d1ac04dadef2b58f194c1.csv", newline=""
+    ) as csv_file:
+        reader = csv.DictReader(csv_file)
+        assert reader.fieldnames == [
+            "SubNetwork",
+            "ManagedElement",
+            "RncFunction",
+            "vsDataUtranCell",
+            "sc",
+            "pcpichpower",
+        ]
+        assert list(reader) == [
+            {
+                "SubNetwork": "1",
+                "ManagedElement": "2",
+                "RncFunction": "3",
+                "vsDataUtranCell": "Cell4",
+                "sc": "111",
+                "pcpichpower": "222",
+            }
+        ]
+
+    assert not (
+        os.path.exists("data/vsDataRncHandOver-430a850294cd3dd7ab5fac2a6e8b8c75.csv")
+    )
+    assert not (os.path.exists("data/SubNetwork-e3c968f12ec1ae219a7e2f9d7829a67d.csv"))
+    assert not (
+        os.path.exists("data/ManagedElement-e3c968f12ec1ae219a7e2f9d7829a67d.csv")
+    )
+    assert not (os.path.exists("data/RncFunction-e3c968f12ec1ae219a7e2f9d7829a67d.csv"))
+
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
     metadata, duration = bulkcm.parse(
         "data/bulkcm_with_vsdatacontainer.xml", "data", stream
