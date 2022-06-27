@@ -1,0 +1,8 @@
+recursive-include teed/assets *
+include LICENSE.md
+include Makefile
+include pylama.ini
+include pytest.ini
+include README.md
+include teed/BULKCM.md
+include teed/MEAS.md

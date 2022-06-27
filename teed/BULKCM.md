@@ -1,10 +1,40 @@
 # bulkcm
-The BulkCm module supports probing, spliting and parsing of Bulkcm 32.615 specification, version 9.2.0 (2011-01) XML files.
+The BulkCm module supports probing, spliting and parsing of Bulkcm 32.615 specification, version 9.2.0 (2011-01) XML files:
+
+```xml
+<?xml version='1.0' encoding='UTF-8'?>
+<bulkCmConfigDataFile xmlns="http://www.3gpp.org/ftp/specs/archive/32_series/32.615#configData"
+    xmlns:xn="http://www.3gpp.org/ftp/specs/archive/32_series/32.625#genericNrm"
+    xmlns:un="http://www.3gpp.org/ftp/specs/archive/32_series/32.645#utranNrm"
+    xmlns:vsRHO11="http://www.companyNN.com/xmlschemas/NNRncHandOver.1.1">
+    <configData dnPrefix="DC=a1.companyNN.com">
+        <xn:SubNetwork id="1">
+            <xn:ManagedElement id="1">
+                <un:RncFunction id="1">
+                    <xn:VsDataContainer id="1">
+                        <xn:attributes>
+                            <xn:vsDataType>vsDataRncHandOver</xn:vsDataType>
+                            <xn:vsDataFormatVersion>NNRncHandOver.1.1</xn:vsDataFormatVersion>
+                            <vsRHO11:vsDataRncHandOver>
+                                <vsRHO11:abcMin>12</vsRHO11:abcMin>
+                                <vsRHO11:abcMax>34</vsRHO11:abcMax>
+                            </vsRHO11:vsDataRncHandOver>
+                        </xn:attributes>
+                    </xn:VsDataContainer>
+                </un:RncFunction>
+            </xn:ManagedElement>
+        </xn:SubNetwork>
+    </configData>
+</bulkCmConfigDataFile>
+```
+
+Specification in ETSI and 3GPP:
 
 https://www.etsi.org/deliver/etsi_ts/132600_132699/132615/09.02.00_60/ts_132615v090200p.pdf
+
 https://portal.3gpp.org/desktopmodules/Specifications/SpecificationDetails.aspx?specificationId=2086
 
-```
+```shell
 env) joaomg@mypc:~/teed$ python -m teed bulkcm
 Usage: teed bulkcm [OPTIONS] COMMAND [ARGS]...
 
@@ -20,7 +50,7 @@ Commands:
 
 Each bulkcm subcommand has distinct options:
 
-```
+```shell
 (env) joaomg@mypc:~/teed$ python -m teed bulkcm probe --help
 Usage: teed bulkcm probe [OPTIONS] FILE_PATH
 

@@ -116,6 +116,18 @@ def test_split():
 def test_parse():
     """ Test bulkcm.parse """
 
+    # remove all .csv and .yml files from data
+    try:
+        import glob
+
+        for csv_file in glob.iglob("data/*.csv"):
+            os.remove(csv_file)
+
+        for csv_file in glob.iglob("data/*.yml"):
+            os.remove(csv_file)
+    except FileNotFoundError:
+        pass
+
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
     bulkcm.parse("data/bulkcm.xml", "data", stream)
 
@@ -152,12 +164,12 @@ def test_parse():
         }
 
     with open(
-        "data/ManagedElement-2ad0c41c0141dad76eae0425d952470c.csv", newline=""
+        "data/ManagedElement-2ce5d8fae91842f854b00844e05fdd6b.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == [
-            "node_id",
-            "node_key",
+            "SubNetwork",
+            "ManagedElement",
             "managedElementType",
             "userLabel",
             "vendorName",
@@ -166,8 +178,8 @@ def test_parse():
         ]
         assert list(reader) == [
             {
-                "node_id": "1",
-                "node_key": "[{'SubNetwork': '1'}, {'ManagedElement': '1'}]",
+                "SubNetwork": "1",
+                "ManagedElement": "1",
                 "managedElementType": "RNC",
                 "userLabel": "Paris RN1",
                 "vendorName": "Company NN",
@@ -175,8 +187,8 @@ def test_parse():
                 "locationName": "Champ de Mars",
             },
             {
-                "node_id": "2",
-                "node_key": "[{'SubNetwork': '1'}, {'ManagedElement': '2'}]",
+                "SubNetwork": "1",
+                "ManagedElement": "2",
                 "managedElementType": "RNC",
                 "userLabel": "Paris RN2",
                 "vendorName": "Company NN",
@@ -186,12 +198,12 @@ def test_parse():
         ]
 
     with open(
-        "data/ManagementNode-bcbc45d45148e76ee80ad0ce9110eac7.csv", newline=""
+        "data/ManagementNode-cb742e095d2f7bda9622720bf9237682.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == [
-            "node_id",
-            "node_key",
+            "SubNetwork",
+            "ManagementNode",
             "userLabel",
             "vendorName",
             "userDefinedState",
@@ -199,8 +211,8 @@ def test_parse():
         ]
         assert list(reader) == [
             {
-                "node_id": "1",
-                "node_key": "[{'SubNetwork': '1'}, {'ManagementNode': '1'}]",
+                "SubNetwork": "1",
+                "ManagementNode": "1",
                 "userLabel": "Paris MN1",
                 "vendorName": "Company NN",
                 "userDefinedState": "commercial",
@@ -209,19 +221,17 @@ def test_parse():
         ]
 
     with open(
-        "data/SubNetwork-05edfb4b65ec197423ff273ef30ddaff.csv", newline=""
+        "data/SubNetwork-7c3cf0dd0368151b3df3dea6e9ec46ff.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
         assert reader.fieldnames == [
-            "node_id",
-            "node_key",
+            "SubNetwork",
             "userLabel",
             "userDefinedNetworkType",
         ]
         assert list(reader) == [
             {
-                "node_id": "1",
-                "node_key": "[{'SubNetwork': '1'}]",
+                "SubNetwork": "1",
                 "userLabel": "Paris SN1",
                 "userDefinedNetworkType": "UMTS",
             }
@@ -229,7 +239,7 @@ def test_parse():
 
     # exlude all elements -> nothing is processed
     try:
-        os.remove("data/vsDataUtranCell-58abad5af457eb77f98a476b59a0e146.csv")
+        os.remove("data/vsDataUtranCell-762627b0939d1ac04dadef2b58f194c1.csv")
         os.remove("data/vsDataRncHandOver-430a850294cd3dd7ab5fac2a6e8b8c75.csv")
         os.remove("data/SubNetwork-e3c968f12ec1ae219a7e2f9d7829a67d.csv")
         os.remove("data/ManagedElement-e3c968f12ec1ae219a7e2f9d7829a67d.csv")
@@ -243,7 +253,7 @@ def test_parse():
     )
 
     assert not (
-        os.path.exists("data/vsDataUtranCell-58abad5af457eb77f98a476b59a0e146.csv")
+        os.path.exists("data/vsDataUtranCell-762627b0939d1ac04dadef2b58f194c1.csv")
     )
     assert not (
         os.path.exists("data/vsDataRncHandOver-430a850294cd3dd7ab5fac2a6e8b8c75.csv")
@@ -256,7 +266,7 @@ def test_parse():
 
     # exlude all elements except vsDataUtranCell
     try:
-        os.remove("data/vsDataUtranCell-58abad5af457eb77f98a476b59a0e146.csv")
+        os.remove("data/vsDataUtranCell-762627b0939d1ac04dadef2b58f194c1.csv")
         os.remove("data/vsDataRncHandOver-430a850294cd3dd7ab5fac2a6e8b8c75.csv")
         os.remove("data/SubNetwork-e3c968f12ec1ae219a7e2f9d7829a67d.csv")
         os.remove("data/ManagedElement-e3c968f12ec1ae219a7e2f9d7829a67d.csv")
@@ -273,20 +283,30 @@ def test_parse():
         exclude_elements=["*"],
     )
 
-    assert os.path.exists("data/vsDataUtranCell-58abad5af457eb77f98a476b59a0e146.csv")
+    assert os.path.exists("data/vsDataUtranCell-762627b0939d1ac04dadef2b58f194c1.csv")
     with open(
-        "data/vsDataUtranCell-58abad5af457eb77f98a476b59a0e146.csv", newline=""
+        "data/vsDataUtranCell-762627b0939d1ac04dadef2b58f194c1.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
-        assert reader.fieldnames == ["node_id", "node_key", "sc", "pcpichpower"]
+        assert reader.fieldnames == [
+            "SubNetwork",
+            "ManagedElement",
+            "RncFunction",
+            "vsDataUtranCell",
+            "sc",
+            "pcpichpower",
+        ]
         assert list(reader) == [
             {
-                "node_id": "Cell1",
-                "node_key": "[{'SubNetwork': '1'}, {'ManagedElement': '1'}, {'RncFunction': '1'}, {'vsDataUtranCell': 'Cell1'}]",
+                "SubNetwork": "1",
+                "ManagedElement": "2",
+                "RncFunction": "3",
+                "vsDataUtranCell": "Cell4",
                 "sc": "111",
                 "pcpichpower": "222",
             }
         ]
+
     assert not (
         os.path.exists("data/vsDataRncHandOver-430a850294cd3dd7ab5fac2a6e8b8c75.csv")
     )
@@ -302,42 +322,46 @@ def test_parse():
     )
 
     with open(
-        "data/SubNetwork-e3c968f12ec1ae219a7e2f9d7829a67d.csv", newline=""
+        "data/SubNetwork-97cdbf39c39074db55f07d505908bc4c.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
-        assert reader.fieldnames == ["node_id", "node_key"]
-        assert list(reader) == [{"node_id": "1", "node_key": "[{'SubNetwork': '1'}]"}]
+        assert reader.fieldnames == ["SubNetwork"]
+        assert list(reader) == [{"SubNetwork": "1"}]
 
     with open(
-        "data/ManagedElement-e3c968f12ec1ae219a7e2f9d7829a67d.csv", newline=""
+        "data/ManagedElement-788834423bcf73489d85c4e44a093dc4.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
-        assert reader.fieldnames == ["node_id", "node_key"]
+        assert reader.fieldnames == ["SubNetwork", "ManagedElement"]
+        assert list(reader) == [{"SubNetwork": "1", "ManagedElement": "2"}]
+
+    with open(
+        "data/RncFunction-7e9e4244ee9d918874b4a371bc4fe70f.csv", newline=""
+    ) as csv_file:
+        reader = csv.DictReader(csv_file)
+        assert reader.fieldnames == ["SubNetwork", "ManagedElement", "RncFunction"]
         assert list(reader) == [
-            {"node_id": "1", "node_key": "[{'SubNetwork': '1'}, {'ManagedElement': '1'}]"}
+            {"SubNetwork": "1", "ManagedElement": "2", "RncFunction": "3"}
         ]
 
     with open(
-        "data/RncFunction-e3c968f12ec1ae219a7e2f9d7829a67d.csv", newline=""
+        "data/vsDataRncHandOver-945526f2dd4bbe6df48bd5893ef37fbf.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
-        assert reader.fieldnames == ["node_id", "node_key"]
-        assert list(reader) == [
-            {
-                "node_id": "1",
-                "node_key": "[{'SubNetwork': '1'}, {'ManagedElement': '1'}, {'RncFunction': '1'}]",
-            }
+        assert reader.fieldnames == [
+            "SubNetwork",
+            "ManagedElement",
+            "RncFunction",
+            "vsDataRncHandOver",
+            "abcMin",
+            "abcMax",
         ]
-
-    with open(
-        "data/vsDataRncHandOver-430a850294cd3dd7ab5fac2a6e8b8c75.csv", newline=""
-    ) as csv_file:
-        reader = csv.DictReader(csv_file)
-        assert reader.fieldnames == ["node_id", "node_key", "abcMin", "abcMax"]
         assert list(reader) == [
             {
-                "node_id": "1",
-                "node_key": "[{'SubNetwork': '1'}, {'ManagedElement': '1'}, {'RncFunction': '1'}, {'vsDataRncHandOver': '1'}]",
+                "SubNetwork": "1",
+                "ManagedElement": "2",
+                "RncFunction": "3",
+                "vsDataRncHandOver": "4",
                 "abcMin": "12",
                 "abcMax": "34",
             }
@@ -347,28 +371,48 @@ def test_parse():
     metadata, duration = bulkcm.parse("data/bulkcm_with_utrancell.xml", "data", stream)
 
     with open(
-        "data/vsDataUtranCell-58abad5af457eb77f98a476b59a0e146.csv", newline=""
+        "data/vsDataUtranCell-762627b0939d1ac04dadef2b58f194c1.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
-        assert reader.fieldnames == ["node_id", "node_key", "sc", "pcpichpower"]
+        assert reader.fieldnames == [
+            "SubNetwork",
+            "ManagedElement",
+            "RncFunction",
+            "vsDataUtranCell",
+            "sc",
+            "pcpichpower",
+        ]
         assert list(reader) == [
             {
-                "node_id": "Cell1",
-                "node_key": "[{'SubNetwork': '1'}, {'ManagedElement': '1'}, {'RncFunction': '1'}, {'vsDataUtranCell': 'Cell1'}]",
+                "SubNetwork": "1",
+                "ManagedElement": "2",
+                "RncFunction": "3",
+                "vsDataUtranCell": "Cell4",
                 "sc": "111",
                 "pcpichpower": "222",
             }
         ]
 
     with open(
-        "data/vsDataRncHandOver-430a850294cd3dd7ab5fac2a6e8b8c75.csv", newline=""
+        "data/vsDataRncHandOver-8ebadf34e92ad0fb468fd0bed0aab89d.csv", newline=""
     ) as csv_file:
         reader = csv.DictReader(csv_file)
-        assert reader.fieldnames == ["node_id", "node_key", "abcMin", "abcMax"]
+        assert reader.fieldnames == [
+            "SubNetwork",
+            "ManagedElement",
+            "RncFunction",
+            "vsDataUtranCell",
+            "vsDataRncHandOver",
+            "abcMin",
+            "abcMax",
+        ]
         assert list(reader) == [
             {
-                "node_id": "1",
-                "node_key": "[{'SubNetwork': '1'}, {'ManagedElement': '1'}, {'RncFunction': '1'}, {'vsDataUtranCell': 'Cell1'}, {'vsDataRncHandOver': '1'}]",
+                "SubNetwork": "1",
+                "ManagedElement": "2",
+                "RncFunction": "3",
+                "vsDataUtranCell": "Cell4",
+                "vsDataRncHandOver": "5",
                 "abcMin": "12",
                 "abcMax": "34",
             }

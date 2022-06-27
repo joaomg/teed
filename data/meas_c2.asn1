@@ -1,0 +1,46 @@
+MeasDataCollection ::= {
+ measFileHeader {
+ fileFormatVersion ::= "32.401 V5.0",
+ senderName ::=
+"DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1" ,
+ senderType ::= "RNC",
+ vendorName ::= "Company NN",
+ collectionBeginTime ::= 20000301140000
+ },
+ measData {
+ nEId {
+ nEUserName ::= "RNC Telecomville",
+ nEDistinguishedName ::=
+"DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
+ nESoftwareVersion ::= "2.1"
+ },
+ measInfo {
+ measTimeStamp ::= 20000301141430,
+ granularityPeriod ::= 900,
+ measTypes {
+ "attTCHSeizures", "succTCHSeizures", "attImmediateAssignProcs", "succImmediateAssignProcs" 
+ Release 5
+3GPP
+41 3GPP TS 32.401 V5.5.0 (2005-03)
+},
+ measValues {
+ {
+measObjInstId ::= "RncFunction=RF-1,UtranCell=Gbg-997",
+measResults { iValue ::= 234, iValue ::= 345, iValue ::= 567, iValue ::= 789},
+suspectFlag ::= FALSE
+},
+ {
+measObjInstId ::= "RncFunction=RF-1,UtranCell=Gbg-998",
+measResults { iValue ::= 890, iValue ::= 901, iValue ::= 123, iValue ::= 234},
+suspectFlag ::= FALSE
+},
+ {
+measObjInstId ::= "RncFunction=RF-1,UtranCell=Gbg-999",
+measResults { iValue ::= 456, iValue ::= 567, iValue ::= 678, iValue ::= 789},
+suspectFlag ::= TRUE
+}
+}
+ }
+},
+ measFileFooter ::= 20000301141500
+} 

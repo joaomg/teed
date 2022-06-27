@@ -28,7 +28,7 @@ TESTS_REQUIRE = [
 EXTRAS_REQUIRE = {
     "dev": TESTS_REQUIRE,
 }
-INSTALL_REQUIRES = ["lxml>=4.6.2", "typer>=0.3.2", "pyyaml>=5.4.1"]
+INSTALL_REQUIRES = ["lxml>=4.6.3", "typer>=0.3.2", "pyyaml>=5.4.1"]
 README = read("README.md")
 VERSION = read(PACKAGE, "assets", "VERSION")
 PACKAGES = find_packages(exclude=["tests"])
@@ -50,7 +50,7 @@ setup(
     zip_safe=False,
     long_description=README,
     long_description_content_type="text/markdown",
-    description="",
+    description="Telco engineering data library",
     author="joaomg",
     author_email="joaomg@gmail.com",
     url="https://github.com/joaomg/teed",
@@ -58,18 +58,24 @@ setup(
         "telco data engineering",
         "telco cm",
         "telco pm",
-        "telco bulkcm",
-        "frictionless data",
-        "data package",
-        "tabular data package",
+        "bulkcm",
+        "meas",
+        "mdc",
+        "ETSI",
+        "3gpp",
     ],
     classifiers=[
-        "Development Status :: 0 - Alpha",
+        "Development Status :: 3 - Alpha",
         "Environment :: Console",
         "Intended Audience :: Developers",
+        "Intended Audience :: Telecommunications Industry",
+        "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+        "Natural Language :: English",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.8",
         "Topic :: Software Development :: Libraries :: Python Modules",
+        "Topic :: Text Processing :: Markup :: XML",
     ],
+    python_requires=">=3.8",
 )
