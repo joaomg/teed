@@ -77,5 +77,5 @@ def test_bulkcm_parse_program():
     assert result.stdout.count("Parsing data/tag_mismatch.xml")
     assert result.stdout.count("Error parsing data/tag_mismatch.xml")
     assert result.stdout.count(
-        "Opening and ending tag mismatch: abx line 0 and abcMax, line 15, column 65 (tag_mismatch.xml, line 15)"
+        "Opening and ending tag mismatch: abx line 15 and abcMax, line 15, column 65 (tag_mismatch.xml, line 15)"
     )

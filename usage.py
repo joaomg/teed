@@ -4,5 +4,5 @@ from teed import bulkcm, meas
 stream = bulkcm.BulkCmParser.stream_to_csv("data")
 bulkcm.parse("data/bulkcm.xml", "data", stream)
 
-## meas 
+## meas
 meas.parse("data/mdc*xml", "data")
