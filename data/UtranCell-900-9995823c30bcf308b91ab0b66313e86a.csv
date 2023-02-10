@@ -1,7 +1,7 @@
 ST,NEDN,LDN,attTCHSeizures,succTCHSeizures,attImmediateAssignProcs,succImmediateAssignProcs
-20000301140000,"DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1","RncFunction=RF-1,UtranCell=Gbg-997",234,345,567,789
-20000301140000,"DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1","RncFunction=RF-1,UtranCell=Gbg-998",890,901,123,234
-20000301140000,"DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1","RncFunction=RF-1,UtranCell=Gbg-999",456,567,678,789
-20000301140000,"DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1","RncFunction=RF-1,UtranCell=Gbg-997",234,345,567,789
-20000301140000,"DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1","RncFunction=RF-1,UtranCell=Gbg-998",890,901,123,234
-20000301140000,"DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1","RncFunction=RF-1,UtranCell=Gbg-999",456,567,678,789
+20210301140000,"DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1","RncFunction=RF-1,UtranCell=Gbg-997",234,345,567,789
+20210301140000,"DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1","RncFunction=RF-1,UtranCell=Gbg-998",890,901,123,234
+20210301140000,"DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1","RncFunction=RF-1,UtranCell=Gbg-999",456,567,678,789
+20210301140000,"DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1","RncFunction=RF-1,UtranCell=Gbg-997",234,345,567,789
+20210301140000,"DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1","RncFunction=RF-1,UtranCell=Gbg-998",890,901,123,234
+20210301140000,"DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1","RncFunction=RF-1,UtranCell=Gbg-999",456,567,678,789

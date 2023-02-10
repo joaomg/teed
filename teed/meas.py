@@ -89,7 +89,7 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
                     for mi in element.iterfind("mi"):
                         table = {}
                         # <mi>
-                        #   <mts>20000301141430</mts>
+                        #   <mts>20210301141430</mts>
                         #   <gp>900</gp>
                         ts = mi.find("mts").text[:14]
                         gp = mi.find("gp").text
@@ -152,7 +152,7 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
                     #     <sn>DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1</sn>
                     #     <st>RNC</st>
                     #     <vn>Company NN</vn>
-                    #     <cbt>20000301140000</cbt>
+                    #     <cbt>20210301140000</cbt>
                     # </mfh>
                     metadata["encoding"] = (element.getroottree()).docinfo.encoding
 
@@ -161,7 +161,7 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
 
                 elif localName == "mff":
                     # <mff>
-                    #   <ts>20000301141500</ts>
+                    #   <ts>20210301141500</ts>
                     # </mff>
                     for child in element:
                         metadata[child.tag] = child.text

@@ -38,7 +38,7 @@ def test_meas_parse():
 
         assert list(reader) == [
             {
-                "ST": "20000301140000",
+                "ST": "20210301140000",
                 "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
                 "LDN": "RncFunction=RF-1,UtranCell=Gbg-997",
                 "attTCHSeizures": "234",
@@ -47,7 +47,7 @@ def test_meas_parse():
                 "succImmediateAssignProcs": "789",
             },
             {
-                "ST": "20000301140000",
+                "ST": "20210301140000",
                 "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
                 "LDN": "RncFunction=RF-1,UtranCell=Gbg-998",
                 "attTCHSeizures": "890",
@@ -56,7 +56,7 @@ def test_meas_parse():
                 "succImmediateAssignProcs": "234",
             },
             {
-                "ST": "20000301140000",
+                "ST": "20210301140000",
                 "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
                 "LDN": "RncFunction=RF-1,UtranCell=Gbg-999",
                 "attTCHSeizures": "456",
@@ -65,7 +65,7 @@ def test_meas_parse():
                 "succImmediateAssignProcs": "789",
             },
             {
-                "ST": "20000301140000",
+                "ST": "20210301140000",
                 "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
                 "LDN": "RncFunction=RF-1,UtranCell=Gbg-997",
                 "attTCHSeizures": "234",
@@ -74,7 +74,7 @@ def test_meas_parse():
                 "succImmediateAssignProcs": "789",
             },
             {
-                "ST": "20000301140000",
+                "ST": "20210301140000",
                 "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
                 "LDN": "RncFunction=RF-1,UtranCell=Gbg-998",
                 "attTCHSeizures": "890",
@@ -83,7 +83,7 @@ def test_meas_parse():
                 "succImmediateAssignProcs": "234",
             },
             {
-                "ST": "20000301140000",
+                "ST": "20210301140000",
                 "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
                 "LDN": "RncFunction=RF-1,UtranCell=Gbg-999",
                 "attTCHSeizures": "456",
@@ -139,7 +139,7 @@ def test_meas_parse_consume_ldn_natural_key():
                 "succImmediateAssignProcs",
             ],
             [
-                "20000301140000",
+                "20210301140000",
                 "a1.companyNN.com",
                 "1",
                 "1",
@@ -154,7 +154,7 @@ def test_meas_parse_consume_ldn_natural_key():
                 "789",
             ],
             [
-                "20000301140000",
+                "20210301140000",
                 "a1.companyNN.com",
                 "1",
                 "1",
@@ -169,7 +169,7 @@ def test_meas_parse_consume_ldn_natural_key():
                 "234",
             ],
             [
-                "20000301140000",
+                "20210301140000",
                 "a1.companyNN.com",
                 "1",
                 "1",
@@ -346,7 +346,7 @@ def test_meas_parse_consume_custom():
                 "succImmediateAssignProcs",
             ],
             [
-                "20000301140000",
+                "20210301140000",
                 "RF-1",
                 "Gbg-997",
                 "234",
@@ -355,7 +355,7 @@ def test_meas_parse_consume_custom():
                 "789",
             ],
             [
-                "20000301140000",
+                "20210301140000",
                 "RF-1",
                 "Gbg-998",
                 "890",
@@ -364,7 +364,7 @@ def test_meas_parse_consume_custom():
                 "234",
             ],
             [
-                "20000301140000",
+                "20210301140000",
                 "RF-1",
                 "Gbg-999",
                 "456",
