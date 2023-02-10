@@ -114,7 +114,10 @@ def test_meas_parse_consume_ldn_natural_key():
         pass
 
     meas.parse(
-        pathname, output_dir, recursive, consume_target=meas.consume_ldn_natural_key
+        pathname,
+        output_dir,
+        recursive,
+        consume_target=meas.consume_ldn_natural_key_to_csv,
     )
 
     with open(
