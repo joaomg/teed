@@ -123,10 +123,14 @@ Append data/UtranCell-900-9995823c30bcf308b91ab0b66313e86a.csv
 Producer and consumer done, exiting.
 ```
 
-Parse all mdc\*xml files in data directory and output to Parquet.
+Parse all mdc\*xml files in data directory and output to Parquet, partitioning by time (gp defines the partition structure).
+
+300 -> day | hour | minute (every 5 minutes)
+900 -> day | hour | minute (every 15 minutes)
+3600 -> day | hour
+86400 -> day
 
 ```python
->>> from teed import meas
 >>> from teed import meas
 >>> meas.parse("data/mdc_c3_1.xml", "data", recursive=False, consume=meas.consume_ldn_natural_key_to_parquet)
 Producer starting 1464
@@ -143,6 +147,67 @@ metadata=<pyarrow._parquet.FileMetaData object at 0x7f2db8dfc2c0>
   format_version: 1.0
   serialized_size: 0
 Producer and consumer done, exiting.
+```
+
+Parse all mdc\*xml files in data directory and output to Parquet, partitioning by node and time.
+
+Create a Node column from the NEDN data. Identify the network node by this column.
+
+```python
+>>> from teed import meas
+>>> meas.parse(
+    "data/mdc*xml",
+    "data",
+    recursive=False,
+    consume=meas.consume_ldn_natural_key_to_parquet,
+    consume_kwargs={
+        "nedn_ignore_before": "SubNetwork",
+        "ldn_ignore_before": "SubNetwork",
+        "node_expression": "nedn_dict.pop('ManagedElement')",
+        "node_partition_by": True,
+    },
+)
+>>> import pyarrow as pa
+>>> import pyarrow.dataset as ds
+>>> dataset = ds.dataset(
+    "data/UtranCell-Node-900",
+    format="parquet",
+    partitioning=ds.partitioning(
+        pa.schema(
+            [
+                pa.field("Node", pa.string()),
+                pa.field("day", pa.date32()),
+                pa.field("hh", pa.uint8()),
+                pa.field("mm", pa.uint8()),
+            ]
+        )
+    ),
+)
+>>> table = dataset.to_table()
+>>> print(table)
+pyarrow.Table
+RncFunction: string
+UtranCell: string
+attTCHSeizures: int64
+succTCHSeizures: int64
+attImmediateAssignProcs: int64
+succImmediateAssignProcs: int64
+Node: string
+day: date32[day]
+hh: uint8
+mm: uint8
+----
+RncFunction: [["RF-1","RF-1","RF-1"]]
+UtranCell: [["Gbg-997","Gbg-998","Gbg-999"]]
+attTCHSeizures: [[234,890,456]]
+succTCHSeizures: [[345,901,567]]
+attImmediateAssignProcs: [[567,123,678]]
+succImmediateAssignProcs: [[789,234,789]]
+Node: [["RNC-Gbg-1","RNC-Gbg-1","RNC-Gbg-1"]]
+day: [[2021-03-01,2021-03-01,2021-03-01]]
+hh: [[14,14,14]]
+mm: [[15,15,15]]
+>>>
 ```
 
 ## References

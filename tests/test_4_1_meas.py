@@ -389,9 +389,8 @@ def test_meas_parse_consume_parquet():
     By default it partitions the data using the granularity period.
     """
 
-    pathname = "data/mdc_c3_1.xml"
+    pathname = "data/mdc*.xml"
     output_dir = "data"
-    recursive = False
 
     rmtree("data/UtranCell-900", ignore_errors=True)
 
@@ -399,7 +398,7 @@ def test_meas_parse_consume_parquet():
     meas.parse(
         pathname,
         output_dir,
-        recursive,
+        recursive=False,
         consume=meas.consume_ldn_natural_key_to_parquet,
         consume_kwargs={
             "nedn_ignore_before": "SubNetwork",
@@ -495,7 +494,7 @@ def test_meas_parse_consume_parquet():
     meas.parse(
         pathname,
         output_dir,
-        recursive,
+        recursive=False,
         consume=meas.consume_ldn_natural_key_to_parquet,
         consume_kwargs={
             "nedn_ignore_before": "SubNetwork",
@@ -581,7 +580,7 @@ def test_meas_parse_consume_parquet():
     meas.parse(
         pathname,
         output_dir,
-        recursive,
+        recursive=False,
         consume=meas.consume_ldn_natural_key_to_parquet,
         consume_kwargs={
             "nedn_ignore_before": "SubNetwork",
