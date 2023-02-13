@@ -44,6 +44,7 @@ python -m teed bulkcm parse data/bulkcm_with_vsdatacontainer.xml data
 ## Usage
 
 Beside command-line teed can be used as a library:
+
 ```python
 from teed import bulkcm, meas
 
@@ -51,11 +52,11 @@ from teed import bulkcm, meas
 stream = bulkcm.BulkCmParser.stream_to_csv("data")
 bulkcm.parse("data/bulkcm.xml", "data", stream)
 
-## meas 
+## meas
 meas.parse("data/mdc*xml", "data")
 ```
 
-The bulkcm parser extracts content from a single file. 
+The bulkcm parser extracts content from a single file.
 
 While the meas parser, in a single run, can process any number of XML files using wildcards and directory recursion.
 
@@ -65,7 +66,7 @@ The bulkcm and meas parsers also differ on CSV file creation:
 
 - meas appends to existing CSV files
 
-Take notice of these differences when calling the parsers from shell. 
+Take notice of these differences when calling the parsers from shell.
 
 Or using them in data pipelines.
 
@@ -77,7 +78,7 @@ Extract performance data from [meas](https://github.com/joaomg/teed/blob/main/te
 
 How to [build](https://github.com/joaomg/teed/blob/main/BUILD.md) teed.
 
-## License 
+## License
 
 The teed library is licensed under:
 
@@ -95,13 +96,13 @@ The teed library aims to be a comprehensive parser toolkit for telecommunication
 
 It's inspired by [frictionless-py](https://github.com/frictionlessdata/frictionless-py). In fact, a production ready data pipeline can naturally glue together teed and frictionless-py.
 
-The former extracting content from telco raw files to CSV. 
+The former extracting content from telco raw files to CSV.
 
 And the later validating, cleaning and transforming data into a query ready system (parquet, RDBMS).
 
     +---------------+
     |Telco raw files|
-    |               |    
+    |               |
     |  .xml  .asn1  |
     +---------------+
             |
@@ -109,7 +110,7 @@ And the later validating, cleaning and transforming data into a query ready syst
             V
     +---------------+
     | Tabular files |
-    |               |    
+    |               |
     |      .csv     |
     +---------------+
             |

@@ -128,7 +128,7 @@ Parse all mdc\*xml files in data directory and output to Parquet.
 ```python
 >>> from teed import meas
 >>> from teed import meas
->>> meas.parse("data/mdc_c3_1.xml", "data", recursive=False, consume_target=meas.consume_ldn_natural_key_to_parquet)
+>>> meas.parse("data/mdc_c3_1.xml", "data", recursive=False, consume=meas.consume_ldn_natural_key_to_parquet)
 Producer starting 1464
 Consumer starting 1474
 Parsing data/mdc_c3_1.xml
