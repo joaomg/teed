@@ -5,7 +5,7 @@ MeasDataCollection ::= {
 "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1" ,
  senderType ::= "RNC",
  vendorName ::= "Company NN",
- collectionBeginTime ::= 20210301140000
+ collectionBeginTime ::= 20210301141500
  },
  measData {
  nEId {
@@ -42,5 +42,5 @@ suspectFlag ::= TRUE
 }
  }
 },
- measFileFooter ::= 20210301141500
+ measFileFooter ::= 20210301143000
 } 

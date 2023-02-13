@@ -4,6 +4,10 @@ import os
 from multiprocessing import Lock, Queue
 from os import path
 from queue import Empty
+from shutil import rmtree
+import pyarrow as pa
+import pyarrow.dataset as ds
+import datetime
 
 from teed import meas
 
@@ -38,7 +42,7 @@ def test_meas_parse():
 
         assert list(reader) == [
             {
-                "ST": "20210301140000",
+                "ST": "20210301141500",
                 "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
                 "LDN": "RncFunction=RF-1,UtranCell=Gbg-997",
                 "attTCHSeizures": "234",
@@ -47,7 +51,7 @@ def test_meas_parse():
                 "succImmediateAssignProcs": "789",
             },
             {
-                "ST": "20210301140000",
+                "ST": "20210301141500",
                 "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
                 "LDN": "RncFunction=RF-1,UtranCell=Gbg-998",
                 "attTCHSeizures": "890",
@@ -56,7 +60,7 @@ def test_meas_parse():
                 "succImmediateAssignProcs": "234",
             },
             {
-                "ST": "20210301140000",
+                "ST": "20210301141500",
                 "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
                 "LDN": "RncFunction=RF-1,UtranCell=Gbg-999",
                 "attTCHSeizures": "456",
@@ -65,7 +69,7 @@ def test_meas_parse():
                 "succImmediateAssignProcs": "789",
             },
             {
-                "ST": "20210301140000",
+                "ST": "20210301141500",
                 "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
                 "LDN": "RncFunction=RF-1,UtranCell=Gbg-997",
                 "attTCHSeizures": "234",
@@ -74,7 +78,7 @@ def test_meas_parse():
                 "succImmediateAssignProcs": "789",
             },
             {
-                "ST": "20210301140000",
+                "ST": "20210301141500",
                 "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
                 "LDN": "RncFunction=RF-1,UtranCell=Gbg-998",
                 "attTCHSeizures": "890",
@@ -83,7 +87,7 @@ def test_meas_parse():
                 "succImmediateAssignProcs": "234",
             },
             {
-                "ST": "20210301140000",
+                "ST": "20210301141500",
                 "NEDN": "DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1",
                 "LDN": "RncFunction=RF-1,UtranCell=Gbg-999",
                 "attTCHSeizures": "456",
@@ -142,7 +146,7 @@ def test_meas_parse_consume_ldn_natural_key():
                 "succImmediateAssignProcs",
             ],
             [
-                "20210301140000",
+                "20210301141500",
                 "a1.companyNN.com",
                 "1",
                 "1",
@@ -157,7 +161,7 @@ def test_meas_parse_consume_ldn_natural_key():
                 "789",
             ],
             [
-                "20210301140000",
+                "20210301141500",
                 "a1.companyNN.com",
                 "1",
                 "1",
@@ -172,7 +176,7 @@ def test_meas_parse_consume_ldn_natural_key():
                 "234",
             ],
             [
-                "20210301140000",
+                "20210301141500",
                 "a1.companyNN.com",
                 "1",
                 "1",
@@ -349,7 +353,7 @@ def test_meas_parse_consume_custom():
                 "succImmediateAssignProcs",
             ],
             [
-                "20210301140000",
+                "20210301141500",
                 "RF-1",
                 "Gbg-997",
                 "234",
@@ -358,7 +362,7 @@ def test_meas_parse_consume_custom():
                 "789",
             ],
             [
-                "20210301140000",
+                "20210301141500",
                 "RF-1",
                 "Gbg-998",
                 "890",
@@ -367,7 +371,7 @@ def test_meas_parse_consume_custom():
                 "234",
             ],
             [
-                "20210301140000",
+                "20210301141500",
                 "RF-1",
                 "Gbg-999",
                 "456",
@@ -376,3 +380,103 @@ def test_meas_parse_consume_custom():
                 "789",
             ],
         ]
+
+
+def test_meas_parse_consume_parquet():
+    """
+    Use parquet consume method in meas.parse.
+
+    By default it partitions the data using the granularity period.
+    """
+
+    pathname = "data/mdc_c3_1.xml"
+    output_dir = "data"
+    recursive = False
+
+    rmtree("data/UtranCell-900", ignore_errors=True)
+
+    meas.parse(
+        pathname,
+        output_dir,
+        recursive,
+        consume_target=meas.consume_ldn_natural_key_to_parquet,
+    )
+
+    # read the UtranCell-900 dataset using the expected partitioning method
+    dataset = ds.dataset(
+        "data/UtranCell-900",
+        format="parquet",
+        partitioning=ds.partitioning(
+            pa.schema(
+                [
+                    pa.field("day", pa.date32()),
+                    pa.field("hh", pa.uint8()),
+                    pa.field("mm", pa.uint8()),
+                ]
+            )
+        ),
+    )
+    table = dataset.to_table()
+
+    # assert table schema
+    table_schema = [field.strip() for field in str(table.schema).split("\n")]
+    assert table_schema == [
+        "SubNetwork: string",
+        "MeContext: string",
+        "ManagedElement: string",
+        "RncFunction: string",
+        "UtranCell: string",
+        "attTCHSeizures: int64",
+        "succTCHSeizures: int64",
+        "attImmediateAssignProcs: int64",
+        "succImmediateAssignProcs: int64",
+        "day: date32[day]",
+        "hh: uint8",
+        "mm: uint8",
+    ]
+
+    # assert table data
+    assert table.to_pylist() == [
+        {
+            "SubNetwork": "CountryNN",
+            "MeContext": "MEC-Gbg1",
+            "ManagedElement": "RNC-Gbg-1",
+            "RncFunction": "RF-1",
+            "UtranCell": "Gbg-997",
+            "attTCHSeizures": 234,
+            "succTCHSeizures": 345,
+            "attImmediateAssignProcs": 567,
+            "succImmediateAssignProcs": 789,
+            "day": datetime.date(2021, 3, 1),
+            "hh": 14,
+            "mm": 15,
+        },
+        {
+            "SubNetwork": "CountryNN",
+            "MeContext": "MEC-Gbg1",
+            "ManagedElement": "RNC-Gbg-1",
+            "RncFunction": "RF-1",
+            "UtranCell": "Gbg-998",
+            "attTCHSeizures": 890,
+            "succTCHSeizures": 901,
+            "attImmediateAssignProcs": 123,
+            "succImmediateAssignProcs": 234,
+            "day": datetime.date(2021, 3, 1),
+            "hh": 14,
+            "mm": 15,
+        },
+        {
+            "SubNetwork": "CountryNN",
+            "MeContext": "MEC-Gbg1",
+            "ManagedElement": "RNC-Gbg-1",
+            "RncFunction": "RF-1",
+            "UtranCell": "Gbg-999",
+            "attTCHSeizures": 456,
+            "succTCHSeizures": 567,
+            "attImmediateAssignProcs": 678,
+            "succImmediateAssignProcs": 789,
+            "day": datetime.date(2021, 3, 1),
+            "hh": 14,
+            "mm": 15,
+        },
+    ]
