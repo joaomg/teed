@@ -18,6 +18,7 @@
 import csv
 import glob
 import hashlib
+from collections import OrderedDict
 import os
 import signal
 import time
@@ -25,8 +26,11 @@ from datetime import datetime, timedelta
 from multiprocessing import Lock, Process, Queue
 from os import path
 from queue import Empty
-
 import typer
+
+import pyarrow as pa
+import pyarrow.dataset as ds
+
 
 # import yaml
 from lxml import etree
@@ -89,7 +93,7 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
                     for mi in element.iterfind("mi"):
                         table = {}
                         # <mi>
-                        #   <mts>20000301141430</mts>
+                        #   <mts>20210301141430</mts>
                         #   <gp>900</gp>
                         ts = mi.find("mts").text[:14]
                         gp = mi.find("gp").text
@@ -152,7 +156,7 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
                     #     <sn>DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1</sn>
                     #     <st>RNC</st>
                     #     <vn>Company NN</vn>
-                    #     <cbt>20000301140000</cbt>
+                    #     <cbt>20210301141500</cbt>
                     # </mfh>
                     metadata["encoding"] = (element.getroottree()).docinfo.encoding
 
@@ -161,7 +165,7 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
 
                 elif localName == "mff":
                     # <mff>
-                    #   <ts>20000301141500</ts>
+                    #   <ts>20210301143000</ts>
                     # </mff>
                     for child in element:
                         metadata[child.tag] = child.text
@@ -174,7 +178,7 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
     queue.put("DONE")
 
 
-def consume(queue: Queue, lock: Lock, output_dir: str):
+def consume_to_csv(queue: Queue, lock: Lock, output_dir: str):
     """Serialize tables received from queue to CSV file.
 
     Place the CSV file in the output dir (output_dir).
@@ -274,7 +278,7 @@ def consume(queue: Queue, lock: Lock, output_dir: str):
             continue
 
 
-def consume_ldn_natural_key(queue: Queue, lock: Lock, output_dir: str):
+def consume_ldn_natural_key_to_csv(queue: Queue, lock: Lock, output_dir: str):
     """Serialize tables received from queue to CSV file.
 
     Place the CSV file in the output dir (output_dir).
@@ -283,11 +287,9 @@ def consume_ldn_natural_key(queue: Queue, lock: Lock, output_dir: str):
 
     Take notice: it doesn't delete the file previously to the serialization.
 
-    The CSV contain at least three columns, in this exact order: ST, NEDN and LDN.
+    The CSV contain at least one columns: ST
 
     ST = measurement start time (YYYYMMDDHHMMSS)
-    NEDN = network element distinguished name (A=a,B=b,C=c)
-    LDN = measured object distinguished name, within the context of the NEDN (A=a,B=b,C=c)
     """
 
     writers = {}  # maps the node_key to it's writer
@@ -393,6 +395,249 @@ def consume_ldn_natural_key(queue: Queue, lock: Lock, output_dir: str):
             continue
 
 
+def consume_ldn_natural_key_to_parquet(
+    queue: Queue,
+    lock: Lock,
+    output_dir: str,
+    nedn_ignore_before="SubNetwork",
+    ldn_ignore_before="SubNetwork",
+    node_expression=None,
+    node_partition_by=False,
+):
+    """Serialize tables received from queue to Parquet file.
+
+    Identical to the consume_ldn_natural_key_to_csv method.
+
+    But writes the data to partitioned Parquet files.
+
+    To simplify the dimensions and reduce the data size we can control which
+    parts of the NEDN and LDN are split into columns.
+    This is particularly important to guarantee that we won't have duplicate columns.
+
+    For instance in the NEDN below we should ignore before the last SubNetwork:
+
+    NEDN = DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1
+
+    Simplified NEDN =SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1
+
+    Which is enough to identify the NE in the network.
+
+    nedn_ignore_before: str -> ignores the NEDN before this member last occurrence
+    ldn_ignore_before: str -> ignores the LDN before this member last occurrence
+    node_expression: str -> use expression to calculate the node key and replace the nedn with it (reduces amount of data)
+    node_partition_by: bool -> partition by node if True
+    """
+
+    if node_partition_by and not (node_expression):
+        raise TeedException("We need a node_expression to partition the data by node!")
+
+    def file_visitor(written_file):
+        """ PyArrow file visitor method, called when a new file is created """
+
+        print(f"path={written_file.path}")
+        print(f"size={written_file.size} bytes")
+        print(f"metadata={written_file.metadata}")
+
+    def get_timestamp(my_datetime: str) -> list:
+        """Return a list with the timestamp from a datetime %Y%m%d%H%M%S string"""
+        return [datetime.strptime(my_datetime, "%Y%m%d%H%M%S")]
+
+    def get_day_hh_mm(my_datetime: str) -> list:
+        """Return list of day: date, hh: int and mm: int from a datetime %Y%m%d%H%M%S string """
+        return [
+            datetime.strptime(my_datetime[0:8], "%Y%m%d"),
+            int(my_datetime[8:10]),
+            int(my_datetime[10:12]),
+        ]
+
+    def get_day_hh(my_datetime: str) -> list:
+        return [datetime.strptime(my_datetime[0:8], "%Y%m%d"), int(my_datetime[8:10])]
+
+    def get_day(my_datetime: str) -> list:
+        return [datetime.strptime(my_datetime[0:8], "%Y%m%d")]
+
+    # map the granularity period to time partitioning
+    gp_time_column = {
+        300: ["day", "hh", "mm"],
+        900: ["day", "hh", "mm"],
+        3600: ["day", "hh"],
+        86400: ["day"],
+    }
+
+    gp_time_parts = {
+        300: get_day_hh_mm,
+        900: get_day_hh_mm,
+        3600: get_day_hh,
+        86400: get_day,
+    }
+
+    gp_time_partitioning = {
+        300: [
+            pa.field("day", pa.date32()),
+            pa.field("hh", pa.uint8()),
+            pa.field("mm", pa.uint8()),
+        ],
+        900: [
+            pa.field("day", pa.date32()),
+            pa.field("hh", pa.uint8()),
+            pa.field("mm", pa.uint8()),
+        ],
+        3600: [
+            pa.field("day", pa.date32()),
+            pa.field("hh", pa.uint8()),
+        ],
+        86400: [
+            pa.field("day", pa.date32()),
+        ],
+    }
+
+    with lock:
+        print(f"Consumer starting {os.getpid()}")
+
+    while True:
+        try:
+            item = queue.get(block=True, timeout=0.05)
+
+            # exit while loop on receiving DONE item
+            if item == "DONE":
+                break
+
+            if item == "STOP":
+                with lock:
+                    print("Stop received!")
+
+                break
+
+            # original nedn
+            # DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1
+            #
+            # nedn by ignoring everything before the last SubNetwork
+            # SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1
+            nedn = item["rows"][0][1]
+            nedn = (
+                nedn[nedn.rfind(nedn_ignore_before) :]
+                if nedn_ignore_before in nedn
+                else nedn
+            )
+            nedn_dict = OrderedDict(
+                eval(f"""{{'{nedn.replace(",","','").replace("=","':'")}'}}""")
+            )
+
+            # original ldn RncFunction=RF-1,UtranCell=Gbg-997
+            ldn = item["rows"][0][2]
+            ldn = ldn[ldn.rfind(ldn_ignore_before) :] if ldn_ignore_before in ldn else ldn
+            ldn_dict = OrderedDict(
+                eval(f"""{{'{ldn.replace(",","','").replace("=","':'")}'}}""")
+            )
+
+            nedn_keys = (
+                list(nedn_dict.keys()) if node_expression is None else ["Node"]
+            )  # use node instead of the nedn values if node_expression is defined
+            ldn_keys = list(ldn_dict.keys())
+            columns_keys = nedn_keys + ldn_keys  # keys
+            columns_values = item["mts"]  # columns
+            gp = int(item["gp"])  # granularity period in seconds
+
+            # identify a table by the its DN name, Node (if partitioned) and the granularity period
+            # the parquet_path is a directory
+            table_name = (
+                f"{columns_keys[-1]}-Node-{gp}"
+                if node_partition_by
+                else f"{columns_keys[-1]}-{gp}"
+            )
+            parquet_path = path.normpath(f"{output_dir}{path.sep}{table_name}")
+
+            # PyArrow table
+            # the table column names
+            table_columns = gp_time_column.get(gp, ["st"]) + columns_keys + columns_values
+
+            # the table column values, one list per column
+            table_data = [[] for _ in table_columns]
+            for row in item["rows"]:
+                st = row.pop(0)
+                nedn = row.pop(0)
+                nedn = (
+                    nedn[nedn.rfind(nedn_ignore_before) :]
+                    if nedn_ignore_before in nedn
+                    else nedn
+                )
+                nedn_dict = OrderedDict(
+                    eval(f"""{{'{nedn.replace(",","','").replace("=","':'")}'}}""")
+                )
+                ldn = row.pop(0)
+                ldn = (
+                    ldn[ldn.rfind(ldn_ignore_before) :]
+                    if ldn_ignore_before in ldn
+                    else ldn
+                )
+                ldn_dict = OrderedDict(
+                    eval(f"""{{'{ldn.replace(",","','").replace("=","':'")}'}}""")
+                )
+
+                get_time_parts = gp_time_parts.get(gp, get_timestamp)
+                nedn_values = (
+                    list(nedn_dict.values())
+                    if node_expression is None
+                    else [
+                        eval(node_expression)
+                    ]  # use the node_expression value as node instead of the nedn values
+                )
+                ldn_values = list(ldn_dict.values())
+                values = (
+                    get_time_parts(st)
+                    + nedn_values
+                    + ldn_values
+                    + [int(item) for item in row]
+                )
+
+                for i, value in enumerate(values):
+                    table_data[i].append(value)
+
+            # create the table schema
+            # depending on the gp the date/time columns are different
+            # if the granularity period isn't expected use timestamp
+            # all column keys are string
+            # all column values are unsigned integers
+            table_schema = pa.schema(
+                gp_time_partitioning.get(gp, [pa.field("st", pa.timestamp(unit="s"))])
+                + [pa.field(column, pa.string()) for column in columns_keys]
+                + [pa.field(column, pa.uint32()) for column in columns_values]
+            )
+            table = pa.table(data=table_data, schema=table_schema)
+
+            # output data
+            table_hash = hashlib.md5(
+                "".join(columns_keys + columns_values).encode()
+            ).hexdigest()
+
+            # partitioning data
+            partition_fields = (
+                [pa.field("Node", pa.string())] + gp_time_partitioning.get(gp, None)
+                if node_partition_by
+                else gp_time_partitioning.get(gp, None)
+            )
+            part = ds.partitioning(pa.schema(partition_fields))
+
+            ds.write_dataset(
+                table,
+                parquet_path,
+                basename_template=table_hash + "-{i}.parquet",
+                format="parquet",
+                partitioning=part,
+                file_visitor=file_visitor,
+                existing_data_behavior="overwrite_or_ignore",
+            )
+
+        except KeyboardInterrupt:
+            with lock:
+                print("KeyboardInterrupt received, stopping!")
+
+            break
+
+        except Empty:
+            continue
+
+
 def handler_stop(signum, frame):
     """Stop signal handler"""
 
@@ -400,7 +645,11 @@ def handler_stop(signum, frame):
 
 
 def parse(
-    pathname: str, output_dir: str, recursive: bool = False, consume_target=consume
+    pathname: str,
+    output_dir: str,
+    recursive: bool = False,
+    consume=consume_to_csv,
+    consume_kwargs={},
 ):
     """Go through the files in pathname, extracts data
 
@@ -430,9 +679,10 @@ def parse(
         consumer_proc = None
 
         consumer_proc = Process(
-            target=consume_target,
+            target=consume,
             name="consumer",
             args=(queue, lock, output_dir),
+            kwargs=consume_kwargs,
         )
         consumer_proc.daemon = True
 
