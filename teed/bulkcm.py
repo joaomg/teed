@@ -14,6 +14,9 @@ from pprint import pprint
 from typing import Generator, List
 
 import typer
+import pyarrow.fs as fs
+
+from io import TextIOWrapper
 import yaml
 from lxml import etree
 
@@ -264,18 +267,22 @@ class BulkCmParser:
         return self._metadata
 
     @staticmethod
-    def stream_to_csv(output_dir) -> Generator[dict, None, None]:
+    def stream_to_csv(
+        output_dir,
+        output_fs: fs.FileSystem = fs.LocalFileSystem(),
+    ) -> Generator[dict, None, None]:
         """Serialization of nodes to csv files using generator
 
         creates the CSV file in the output directory
 
         receives node dict by send/yield
 
-        @@@ to be changes to producer/consumer using asyncio.Queue
+        @@@ to be changed to producer/consumer using asyncio.Queue
         @@@ https://pymotw.com/3/asyncio/synchronization.html#queues
 
         Parameters:
             output directory (str): output_dir
+            output filesystem (pyarrow.fs.FileSystem): output_fs
         """
 
         csv_file = None
@@ -298,14 +305,16 @@ class BulkCmParser:
                 if node_key not in writers:
                     # create new file
                     # using mode w truncate existing files
-                    csv_path = path.normpath(
+                    csv_path = output_fs.normalize_path(
                         f"{output_dir}{path.sep}{node_name}-{node_hash}.csv"
                     )
-                    csv_file = open(csv_path, mode="w", newline="")
+                    # csv_file = open(csv_path, mode="w", newline="")
+                    csv_bstream = output_fs.open_output_stream(csv_path, compression=None)
 
                     print(f"Created {csv_path}")
-
-                    writer = csv.DictWriter(csv_file, fieldnames=columns)
+                    writer = csv.DictWriter(
+                        TextIOWrapper(csv_bstream), fieldnames=columns
+                    )
                     writer.writeheader()
 
                     writers[node_key] = writer
@@ -328,6 +337,7 @@ def parse(
     stream: Generator,
     include_elements: list = [],
     exclude_elements: list = [],
+    output_fs: fs.FileSystem = fs.LocalFileSystem(),
 ) -> tuple:
     """Parse BulkCm file and place it's content in output directories CSV files
 
@@ -337,6 +347,7 @@ def parse(
         send parsed nodes to stream (Generator): stream
         elements to parse (list): include_elements
         elements to ignore (list): exclude_elements
+        output filesystem (pyarrow.fs.FileSystem): output_fs
 
     Returns:
         bulkcm metadata and parsing duration (dict, timedelta): (metadata, duration)
@@ -346,7 +357,7 @@ def parse(
     if not (path.exists(file_path)):
         raise TeedException(f"Error, input file {file_path} doesn't exists")
 
-    if not (path.exists(output_dir)):
+    if output_fs.get_file_info(output_dir).type == fs.FileType.NotFound:
         raise TeedException(f"Error, output directory {output_dir} doesn't exists")
 
     parser = etree.XMLParser(
@@ -368,11 +379,13 @@ def parse(
 
         # output metadata
         _, file_name_without_ext, _ = file_path_parse(file_path)
-        metadata_file_path = path.normpath(
+        metadata_file_path = output_fs.normalize_path(
             f"{output_dir}{path.sep}{file_name_without_ext}_metadata.yml"
         )
-        with open(metadata_file_path, "w") as out:
-            yaml.dump(metadata, out, default_flow_style=False)
+        # with open(metadata_file_path, "w") as out:
+        with output_fs.open_output_stream(metadata_file_path, compression=None) as out:
+            with TextIOWrapper(out) as tout:
+                yaml.dump(metadata, tout, default_flow_style=False)
 
     except etree.XMLSyntaxError as e:
         raise TeedException(e)
@@ -414,7 +427,7 @@ def parse_program(
         # stream to csv files
         stream_csv = BulkCmParser.stream_to_csv(output_dir)
 
-        metadata, duration = parse(
+        _, duration = parse(
             file_path, output_dir, stream_csv, include_elements, exclude_elements
         )
         print(f"Duration: {duration}")
@@ -432,34 +445,39 @@ def subnetwork_writer(
     fileHeader: dict,
     configData: dict,
     fileFooter: dict,
+    output_fs: fs.FileSystem,
 ):
     """Writes a SubNetwork to the output directory
 
     A new, valid, BulkCm file is created with a single SubNetwork
     """
 
-    with etree.xmlfile(sn_file_path, encoding=bulkCmConfigDataFile["encoding"]) as xf:
+    with output_fs.open_output_stream(sn_file_path, compression=None) as out_stream:
+        with etree.xmlfile(out_stream, encoding=bulkCmConfigDataFile["encoding"]) as xf:
 
-        xf.write_declaration()
-        with xf.element("bulkCmConfigDataFile", nsmap=bulkCmConfigDataFile["nsmap"]):
-            if fileHeader is not None:
-                xf.write(etree.Element("fileHeader", attrib=fileHeader["attrib"]))
+            xf.write_declaration()
+            with xf.element("bulkCmConfigDataFile", nsmap=bulkCmConfigDataFile["nsmap"]):
+                if fileHeader is not None:
+                    xf.write(etree.Element("fileHeader", attrib=fileHeader["attrib"]))
 
-            with xf.element("configData", attrib=configData["attrib"]):
+                with xf.element("configData", attrib=configData["attrib"]):
 
-                # enter the xn:SubNetwork(s)
-                with ExitStack() as stack:
-                    for sn_id in subnetwork_ids[:-1]:
-                        stack.enter_context(xf.element("xn:SubNetwork", id=sn_id))
+                    # enter the xn:SubNetwork(s)
+                    with ExitStack() as stack:
+                        for sn_id in subnetwork_ids[:-1]:
+                            stack.enter_context(xf.element("xn:SubNetwork", id=sn_id))
 
-                    xf.write(sn)
+                        xf.write(sn)
 
-            if fileFooter is not None:
-                xf.write(etree.Element("fileFooter", attrib=fileFooter["attrib"]))
+                if fileFooter is not None:
+                    xf.write(etree.Element("fileFooter", attrib=fileFooter["attrib"]))
 
 
 def split(
-    file_path: str, output_dir: str, subnetworks: list = []
+    file_path: str,
+    output_dir: str,
+    subnetworks: list = [],
+    output_fs: fs.FileSystem = fs.LocalFileSystem(),
 ) -> Generator[tuple, None, None]:
     """Split a BulkCm file by SubNetwork element
     using the split_by_subnetwork function.
@@ -506,7 +524,7 @@ def split(
             fileFooter = {"attrib": {"dateTime": dateTime}}
             break
 
-    file_name, file_name_without_ext, file_ext = file_path_parse(file_path)
+    _, file_name_without_ext, file_ext = file_path_parse(file_path)
 
     with open(file_path, mode="rb") as stream:
 
@@ -560,7 +578,7 @@ def split(
                             continue
 
                     # subnetwork will be split to it's file
-                    sn_file_path = path.normpath(
+                    sn_file_path = output_fs.normalize_path(
                         f"{output_dir}{path.sep}{file_name_without_ext}_{'_'.join(subnetwork_ids)}.{file_ext}"
                     )
 
@@ -572,6 +590,7 @@ def split(
                         fileHeader,
                         configData,
                         fileFooter,
+                        output_fs,
                     )
 
                     # yield the latest SubNetwork
