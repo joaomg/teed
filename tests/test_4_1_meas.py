@@ -1,22 +1,42 @@
 import csv
+import datetime
 import hashlib
 import os
 from multiprocessing import Lock, Queue
 from os import path
 from queue import Empty
-from shutil import rmtree
+
 import pyarrow as pa
 import pyarrow.dataset as ds
-import datetime
+import pyarrow.fs as fs
+import pytest
 
 from teed import meas
+
+# file store credentials
+# create in MinIO instance or AWS
+ACCESS_KEY = "1atuJoRDF8iy2BR40Yv6"
+SECRET_KEY = "6EKNs22XJvMX7RiXWMwW84xxO1ppnStkA6C6kEDh"
+
+try:
+    ofs = fs.S3FileSystem(
+        access_key=ACCESS_KEY,
+        secret_key=SECRET_KEY,
+        scheme="http",
+        endpoint_override="localhost:9000",
+    )
+    ofs.create_dir("data")
+    filestore_running = True
+except:
+    # file store isn't available in localhost:9000
+    filestore_running = False
 
 
 def test_meas_parse():
     """Test meas.parse"""
 
     pathname = "data/mdc*.xml"
-    output_dir = "data"
+    output_dir_or_bucket = "data"
     recursive = False
 
     try:
@@ -24,7 +44,7 @@ def test_meas_parse():
     except FileNotFoundError:
         pass
 
-    meas.parse(pathname, output_dir, recursive)
+    meas.parse(pathname, output_dir_or_bucket, recursive)
 
     with open(
         "data/UtranCell-900-9995823c30bcf308b91ab0b66313e86a.csv", newline=""
@@ -109,7 +129,7 @@ def test_meas_parse_consume_ldn_natural_key():
     """
 
     pathname = "data/mdc_c3_1.xml"
-    output_dir = "data"
+    output_dir_or_bucket = "data"
     recursive = False
 
     try:
@@ -119,7 +139,7 @@ def test_meas_parse_consume_ldn_natural_key():
 
     meas.parse(
         pathname,
-        output_dir,
+        output_dir_or_bucket,
         recursive,
         consume=meas.consume_ldn_natural_key_to_csv,
     )
@@ -382,22 +402,32 @@ def test_meas_parse_consume_custom():
         ]
 
 
-def test_meas_parse_consume_parquet():
+def test_meas_parse_consume_parquet_output_to_localfilesystem():
     """
     Use parquet consume method in meas.parse.
 
+    Output parquet files to the local filesystem.
+
     By default it partitions the data using the granularity period.
+
+    But in this test we also partition by Node.
     """
 
     pathname = "data/mdc*.xml"
-    output_dir = "data"
+    output_dir_or_bucket = "data"
 
-    rmtree("data/UtranCell-900", ignore_errors=True)
+    # output to MinIO file store
+    ofs = fs.LocalFileSystem()
 
     # partition by time
+    try:
+        ofs.delete_dir("data/UtranCell-900")
+    except FileNotFoundError:
+        pass
+
     meas.parse(
         pathname,
-        output_dir,
+        output_dir_or_bucket,
         recursive=False,
         consume=meas.consume_ldn_natural_key_to_parquet,
         consume_kwargs={
@@ -405,6 +435,7 @@ def test_meas_parse_consume_parquet():
             "ldn_ignore_before": "SubNetwork",
             "node_expression": None,
             "node_partition_by": False,
+            "output_fs": ofs,
         },
     )
 
@@ -412,6 +443,7 @@ def test_meas_parse_consume_parquet():
     dataset = ds.dataset(
         "data/UtranCell-900",
         format="parquet",
+        filesystem=ofs,
         partitioning=ds.partitioning(
             pa.schema(
                 [
@@ -487,13 +519,16 @@ def test_meas_parse_consume_parquet():
         },
     ]
 
-    rmtree("data/UtranCell-900", ignore_errors=True)
-
     # replace nedn by Node expression
     # partition time
+    try:
+        ofs.delete_dir("data/UtranCell-900")
+    except FileNotFoundError:
+        pass
+
     meas.parse(
         pathname,
-        output_dir,
+        output_dir_or_bucket,
         recursive=False,
         consume=meas.consume_ldn_natural_key_to_parquet,
         consume_kwargs={
@@ -501,6 +536,7 @@ def test_meas_parse_consume_parquet():
             "ldn_ignore_before": "SubNetwork",
             "node_expression": "nedn_dict.pop('ManagedElement')",
             "node_partition_by": False,
+            "output_fs": ofs,
         },
     )
 
@@ -508,6 +544,7 @@ def test_meas_parse_consume_parquet():
     dataset = ds.dataset(
         "data/UtranCell-900",
         format="parquet",
+        filesystem=ofs,
         partitioning=ds.partitioning(
             pa.schema(
                 [
@@ -577,9 +614,14 @@ def test_meas_parse_consume_parquet():
 
     # replace nedn by Node expression
     # partition by Node and time
+    try:
+        ofs.delete_dir("data/UtranCell-Node-900")
+    except FileNotFoundError:
+        pass
+
     meas.parse(
         pathname,
-        output_dir,
+        output_dir_or_bucket,
         recursive=False,
         consume=meas.consume_ldn_natural_key_to_parquet,
         consume_kwargs={
@@ -587,6 +629,7 @@ def test_meas_parse_consume_parquet():
             "ldn_ignore_before": "SubNetwork",
             "node_expression": "nedn_dict.pop('ManagedElement')",
             "node_partition_by": True,
+            "output_fs": ofs,
         },
     )
 
@@ -594,6 +637,321 @@ def test_meas_parse_consume_parquet():
     dataset = ds.dataset(
         "data/UtranCell-Node-900",
         format="parquet",
+        filesystem=ofs,
+        partitioning=ds.partitioning(
+            pa.schema(
+                [
+                    pa.field("Node", pa.string()),
+                    pa.field("day", pa.date32()),
+                    pa.field("hh", pa.uint8()),
+                    pa.field("mm", pa.uint8()),
+                ]
+            )
+        ),
+    )
+    table = dataset.to_table()
+
+    # assert table schema
+    table_schema = [field.strip() for field in str(table.schema).split("\n")]
+    assert table_schema == [
+        "RncFunction: string",
+        "UtranCell: string",
+        "attTCHSeizures: int64",
+        "succTCHSeizures: int64",
+        "attImmediateAssignProcs: int64",
+        "succImmediateAssignProcs: int64",
+        "Node: string",
+        "day: date32[day]",
+        "hh: uint8",
+        "mm: uint8",
+    ]
+
+    # assert table data
+    assert table.to_pylist() == [
+        {
+            "RncFunction": "RF-1",
+            "UtranCell": "Gbg-997",
+            "attTCHSeizures": 234,
+            "succTCHSeizures": 345,
+            "attImmediateAssignProcs": 567,
+            "succImmediateAssignProcs": 789,
+            "Node": "RNC-Gbg-1",
+            "day": datetime.date(2021, 3, 1),
+            "hh": 14,
+            "mm": 15,
+        },
+        {
+            "RncFunction": "RF-1",
+            "UtranCell": "Gbg-998",
+            "attTCHSeizures": 890,
+            "succTCHSeizures": 901,
+            "attImmediateAssignProcs": 123,
+            "succImmediateAssignProcs": 234,
+            "Node": "RNC-Gbg-1",
+            "day": datetime.date(2021, 3, 1),
+            "hh": 14,
+            "mm": 15,
+        },
+        {
+            "RncFunction": "RF-1",
+            "UtranCell": "Gbg-999",
+            "attTCHSeizures": 456,
+            "succTCHSeizures": 567,
+            "attImmediateAssignProcs": 678,
+            "succImmediateAssignProcs": 789,
+            "Node": "RNC-Gbg-1",
+            "day": datetime.date(2021, 3, 1),
+            "hh": 14,
+            "mm": 15,
+        },
+    ]
+
+
+@pytest.mark.skipif(
+    filestore_running == False,
+    reason="Needs the MinIO file store running in http://localhost:9000",
+)
+def test_meas_parse_consume_parquet_output_to_filestore():
+    """
+    Use parquet consume method in meas.parse.
+
+    Output parquet files to a local running MinIO filestore.
+
+    By default it partitions the data using the granularity period.
+
+    But in this test we also partition by Node.
+    """
+
+    pathname = "data/mdc*.xml"
+    output_dir_or_bucket = "data"
+
+    # output to MinIO file store
+    ofs = fs.S3FileSystem(
+        access_key=ACCESS_KEY,
+        secret_key=SECRET_KEY,
+        scheme="http",
+        endpoint_override="localhost:9000",
+    )
+
+    # partition by time
+    try:
+        ofs.delete_dir("data/UtranCell-900")
+    except FileNotFoundError:
+        pass
+
+    meas.parse(
+        pathname,
+        output_dir_or_bucket,
+        recursive=False,
+        consume=meas.consume_ldn_natural_key_to_parquet,
+        consume_kwargs={
+            "nedn_ignore_before": "SubNetwork",
+            "ldn_ignore_before": "SubNetwork",
+            "node_expression": None,
+            "node_partition_by": False,
+            "output_fs": ofs,
+        },
+    )
+
+    # read the UtranCell-900 dataset using the expected partitioning method
+    dataset = ds.dataset(
+        "data/UtranCell-900",
+        format="parquet",
+        filesystem=ofs,
+        partitioning=ds.partitioning(
+            pa.schema(
+                [
+                    pa.field("day", pa.date32()),
+                    pa.field("hh", pa.uint8()),
+                    pa.field("mm", pa.uint8()),
+                ]
+            )
+        ),
+    )
+    table = dataset.to_table()
+
+    # assert table schema
+    table_schema = [field.strip() for field in str(table.schema).split("\n")]
+    assert table_schema == [
+        "SubNetwork: string",
+        "MeContext: string",
+        "ManagedElement: string",
+        "RncFunction: string",
+        "UtranCell: string",
+        "attTCHSeizures: int64",
+        "succTCHSeizures: int64",
+        "attImmediateAssignProcs: int64",
+        "succImmediateAssignProcs: int64",
+        "day: date32[day]",
+        "hh: uint8",
+        "mm: uint8",
+    ]
+
+    # assert table data
+    assert table.to_pylist() == [
+        {
+            "SubNetwork": "CountryNN",
+            "MeContext": "MEC-Gbg1",
+            "ManagedElement": "RNC-Gbg-1",
+            "RncFunction": "RF-1",
+            "UtranCell": "Gbg-997",
+            "attTCHSeizures": 234,
+            "succTCHSeizures": 345,
+            "attImmediateAssignProcs": 567,
+            "succImmediateAssignProcs": 789,
+            "day": datetime.date(2021, 3, 1),
+            "hh": 14,
+            "mm": 15,
+        },
+        {
+            "SubNetwork": "CountryNN",
+            "MeContext": "MEC-Gbg1",
+            "ManagedElement": "RNC-Gbg-1",
+            "RncFunction": "RF-1",
+            "UtranCell": "Gbg-998",
+            "attTCHSeizures": 890,
+            "succTCHSeizures": 901,
+            "attImmediateAssignProcs": 123,
+            "succImmediateAssignProcs": 234,
+            "day": datetime.date(2021, 3, 1),
+            "hh": 14,
+            "mm": 15,
+        },
+        {
+            "SubNetwork": "CountryNN",
+            "MeContext": "MEC-Gbg1",
+            "ManagedElement": "RNC-Gbg-1",
+            "RncFunction": "RF-1",
+            "UtranCell": "Gbg-999",
+            "attTCHSeizures": 456,
+            "succTCHSeizures": 567,
+            "attImmediateAssignProcs": 678,
+            "succImmediateAssignProcs": 789,
+            "day": datetime.date(2021, 3, 1),
+            "hh": 14,
+            "mm": 15,
+        },
+    ]
+
+    # replace nedn by Node expression
+    # partition time
+    try:
+        ofs.delete_dir("data/UtranCell-900")
+    except FileNotFoundError:
+        pass
+
+    meas.parse(
+        pathname,
+        output_dir_or_bucket,
+        recursive=False,
+        consume=meas.consume_ldn_natural_key_to_parquet,
+        consume_kwargs={
+            "nedn_ignore_before": "SubNetwork",
+            "ldn_ignore_before": "SubNetwork",
+            "node_expression": "nedn_dict.pop('ManagedElement')",
+            "node_partition_by": False,
+            "output_fs": ofs,
+        },
+    )
+
+    # read the UtranCell-900 dataset using the expected partitioning method
+    dataset = ds.dataset(
+        "data/UtranCell-900",
+        format="parquet",
+        filesystem=ofs,
+        partitioning=ds.partitioning(
+            pa.schema(
+                [
+                    pa.field("day", pa.date32()),
+                    pa.field("hh", pa.uint8()),
+                    pa.field("mm", pa.uint8()),
+                ]
+            )
+        ),
+    )
+    table = dataset.to_table()
+
+    # assert table schema
+    table_schema = [field.strip() for field in str(table.schema).split("\n")]
+    assert table_schema == [
+        "Node: string",
+        "RncFunction: string",
+        "UtranCell: string",
+        "attTCHSeizures: int64",
+        "succTCHSeizures: int64",
+        "attImmediateAssignProcs: int64",
+        "succImmediateAssignProcs: int64",
+        "day: date32[day]",
+        "hh: uint8",
+        "mm: uint8",
+    ]
+
+    # assert table data
+    assert table.to_pylist() == [
+        {
+            "Node": "RNC-Gbg-1",
+            "RncFunction": "RF-1",
+            "UtranCell": "Gbg-997",
+            "attTCHSeizures": 234,
+            "succTCHSeizures": 345,
+            "attImmediateAssignProcs": 567,
+            "succImmediateAssignProcs": 789,
+            "day": datetime.date(2021, 3, 1),
+            "hh": 14,
+            "mm": 15,
+        },
+        {
+            "Node": "RNC-Gbg-1",
+            "RncFunction": "RF-1",
+            "UtranCell": "Gbg-998",
+            "attTCHSeizures": 890,
+            "succTCHSeizures": 901,
+            "attImmediateAssignProcs": 123,
+            "succImmediateAssignProcs": 234,
+            "day": datetime.date(2021, 3, 1),
+            "hh": 14,
+            "mm": 15,
+        },
+        {
+            "Node": "RNC-Gbg-1",
+            "RncFunction": "RF-1",
+            "UtranCell": "Gbg-999",
+            "attTCHSeizures": 456,
+            "succTCHSeizures": 567,
+            "attImmediateAssignProcs": 678,
+            "succImmediateAssignProcs": 789,
+            "day": datetime.date(2021, 3, 1),
+            "hh": 14,
+            "mm": 15,
+        },
+    ]
+
+    # replace nedn by Node expression
+    # partition by Node and time
+    try:
+        ofs.delete_dir("data/UtranCell-Node-900")
+    except FileNotFoundError:
+        pass
+
+    meas.parse(
+        pathname,
+        output_dir_or_bucket,
+        recursive=False,
+        consume=meas.consume_ldn_natural_key_to_parquet,
+        consume_kwargs={
+            "nedn_ignore_before": "SubNetwork",
+            "ldn_ignore_before": "SubNetwork",
+            "node_expression": "nedn_dict.pop('ManagedElement')",
+            "node_partition_by": True,
+            "output_fs": ofs,
+        },
+    )
+
+    # read the UtranCell-900 dataset using the expected partitioning method
+    dataset = ds.dataset(
+        "data/UtranCell-Node-900",
+        format="parquet",
+        filesystem=ofs,
         partitioning=ds.partitioning(
             pa.schema(
                 [

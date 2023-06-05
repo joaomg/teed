@@ -7,7 +7,6 @@ runner = CliRunner()
 
 
 def test_meas_parse_program():
-
     try:
         os.remove("data/UtranCell-900-9995823c30bcf308b91ab0b66313e86a.csv")
     except FileNotFoundError:
