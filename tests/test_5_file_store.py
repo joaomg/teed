@@ -37,6 +37,10 @@ ofs = fs.S3FileSystem(
 )
 
 
+@pytest.mark.skipif(
+    filestore_running == False,
+    reason="Needs the MinIO file store running in http://localhost:9000",
+)
 def test_bulkcm_split_output_to_file_store():
     # output to MinIO file store
     ofs = fs.S3FileSystem(
@@ -75,6 +79,10 @@ def test_bulkcm_split_output_to_file_store():
     assert etree.tostring(source) == etree.tostring(target)
 
 
+@pytest.mark.skipif(
+    filestore_running == False,
+    reason="Needs the MinIO file store running in http://localhost:9000",
+)
 def test_bulkcm_parse_output_to_csv_file_store():
     # output to MinIO file store
     ofs = fs.S3FileSystem(
