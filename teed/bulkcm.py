@@ -84,7 +84,6 @@ class BulkCmParser:
         include_elements: list = [],
         exclude_elements: list = [],
     ):
-
         # bulkcm general file data
         self._metadata = {}
 
@@ -147,7 +146,6 @@ class BulkCmParser:
             pass
 
         elif len(attrib) > 0:
-
             if "*" in self._exclude_elements and localname not in self._include_elements:
                 if localname not in self._exclude_elements:
                     self._exclude_elements.append(localname)
@@ -253,7 +251,6 @@ class BulkCmParser:
         self._text.append(data.strip())
 
     def close(self):
-
         # send remaining nodes to stream
         for node in self._nodes:
             node_name = node.get("node_name")
@@ -268,7 +265,7 @@ class BulkCmParser:
 
     @staticmethod
     def stream_to_csv(
-        output_dir,
+        output_dir_or_bucket,
         output_fs: fs.FileSystem = fs.LocalFileSystem(),
     ) -> Generator[dict, None, None]:
         """Serialization of nodes to csv files using generator
@@ -281,7 +278,7 @@ class BulkCmParser:
         @@@ https://pymotw.com/3/asyncio/synchronization.html#queues
 
         Parameters:
-            output directory (str): output_dir
+            output directory (str): output_dir_or_bucket
             output filesystem (pyarrow.fs.FileSystem): output_fs
         """
 
@@ -290,7 +287,6 @@ class BulkCmParser:
         writers = {}  # maps the node_key to it's writer
 
         try:
-
             while True:
                 node = yield
                 node_name = node.pop("node_name")
@@ -306,7 +302,7 @@ class BulkCmParser:
                     # create new file
                     # using mode w truncate existing files
                     csv_path = output_fs.normalize_path(
-                        f"{output_dir}{path.sep}{node_name}-{node_hash}.csv"
+                        f"{output_dir_or_bucket}{path.sep}{node_name}-{node_hash}.csv"
                     )
                     # csv_file = open(csv_path, mode="w", newline="")
                     csv_bstream = output_fs.open_output_stream(csv_path, compression=None)
@@ -333,7 +329,7 @@ class BulkCmParser:
 
 def parse(
     file_path: str,
-    output_dir: str,
+    output_dir_or_bucket: str,
     stream: Generator,
     include_elements: list = [],
     exclude_elements: list = [],
@@ -343,7 +339,7 @@ def parse(
 
     Parameters:
         bulkcm file path (str): file_path
-        output directory (str): output_dir
+        output directory (str): output_dir_or_bucket
         send parsed nodes to stream (Generator): stream
         elements to parse (list): include_elements
         elements to ignore (list): exclude_elements
@@ -357,8 +353,10 @@ def parse(
     if not (path.exists(file_path)):
         raise TeedException(f"Error, input file {file_path} doesn't exists")
 
-    if output_fs.get_file_info(output_dir).type == fs.FileType.NotFound:
-        raise TeedException(f"Error, output directory {output_dir} doesn't exists")
+    if output_fs.get_file_info(output_dir_or_bucket).type == fs.FileType.NotFound:
+        raise TeedException(
+            f"Error, output directory {output_dir_or_bucket} doesn't exists"
+        )
 
     parser = etree.XMLParser(
         target=BulkCmParser(stream, include_elements, exclude_elements),
@@ -380,7 +378,7 @@ def parse(
         # output metadata
         _, file_name_without_ext, _ = file_path_parse(file_path)
         metadata_file_path = output_fs.normalize_path(
-            f"{output_dir}{path.sep}{file_name_without_ext}_metadata.yml"
+            f"{output_dir_or_bucket}{path.sep}{file_name_without_ext}_metadata.yml"
         )
         # with open(metadata_file_path, "w") as out:
         with output_fs.open_output_stream(metadata_file_path, compression=None) as out:
@@ -454,14 +452,12 @@ def subnetwork_writer(
 
     with output_fs.open_output_stream(sn_file_path, compression=None) as out_stream:
         with etree.xmlfile(out_stream, encoding=bulkCmConfigDataFile["encoding"]) as xf:
-
             xf.write_declaration()
             with xf.element("bulkCmConfigDataFile", nsmap=bulkCmConfigDataFile["nsmap"]):
                 if fileHeader is not None:
                     xf.write(etree.Element("fileHeader", attrib=fileHeader["attrib"]))
 
                 with xf.element("configData", attrib=configData["attrib"]):
-
                     # enter the xn:SubNetwork(s)
                     with ExitStack() as stack:
                         for sn_id in subnetwork_ids[:-1]:
@@ -475,7 +471,7 @@ def subnetwork_writer(
 
 def split(
     file_path: str,
-    output_dir: str,
+    output_dir_or_bucket: str,
     subnetworks: list = [],
     output_fs: fs.FileSystem = fs.LocalFileSystem(),
 ) -> Generator[tuple, None, None]:
@@ -494,7 +490,7 @@ def split(
 
     Parameters:
         bulkcm file path (str): file_path
-        output directory (str): output_dir
+        output directory (str): output_dir_or_bucket
         list of SubNetwork id's (list): subnetworks (if empty considerer all SubNetwork's)
 
     Yields:
@@ -527,7 +523,6 @@ def split(
     _, file_name_without_ext, file_ext = file_path_parse(file_path)
 
     with open(file_path, mode="rb") as stream:
-
         bulkCmConfigDataFile = None
         configData = None
         fileHeader = None
@@ -535,7 +530,6 @@ def split(
         subnetwork_ids = []
 
         try:
-
             for event, element in etree.iterparse(
                 stream,
                 events=(
@@ -579,7 +573,7 @@ def split(
 
                     # subnetwork will be split to it's file
                     sn_file_path = output_fs.normalize_path(
-                        f"{output_dir}{path.sep}{file_name_without_ext}_{'_'.join(subnetwork_ids)}.{file_ext}"
+                        f"{output_dir_or_bucket}{path.sep}{file_name_without_ext}_{'_'.join(subnetwork_ids)}.{file_ext}"
                     )
 
                     subnetwork_writer(
@@ -731,9 +725,7 @@ def probe(
     search_tags = list(set(search_tags))
 
     try:
-
         with open(file_path, mode="rb") as stream:
-
             subnetworks = []
 
             for event, element in etree.iterparse(

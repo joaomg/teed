@@ -1,13 +1,15 @@
 import csv
 import os
 
+import pyarrow.fs as fs
 import yaml
 from lxml import etree
+
 from teed import bulkcm
 
 
 def test_probe():
-    """ Test bulkcm.probe """
+    """Test bulkcm.probe"""
 
     # default probing
     assert bulkcm.probe("data/bulkcm.xml") == {
@@ -60,18 +62,20 @@ def test_probe():
 
 
 def test_split():
-    """ Test bulkcm.split """
+    """Test bulkcm.split"""
+
+    ofs = fs.LocalFileSystem()
 
     # remove tests/bulkcm_SubNetwork_1.xml if exists
     try:
-        os.remove("tests/bulkcm_1.xml")
+        ofs.delete_file("tests/bulkcm_1.xml")
     except FileNotFoundError:
         pass
 
     # split bulkcm.xml
     # ignore SubNetwork with id "1"
     for sn_id, sn_file_path in bulkcm.split(
-        "data/bulkcm.xml", "tests", subnetworks=["dummyNetwork"]
+        "data/bulkcm.xml", "tests", subnetworks=["dummyNetwork"], output_fs=ofs
     ):
         assert sn_id == "1"
         assert sn_file_path is None
@@ -80,7 +84,7 @@ def test_split():
     # split bulkcm.xml
     # considered SubNetwork with id "1"
     for sn_id, sn_file_path in bulkcm.split(
-        "data/bulkcm.xml", "tests", subnetworks=["1"]
+        "data/bulkcm.xml", "tests", subnetworks=["1"], output_fs=ofs
     ):
         assert sn_id == "1"
         assert sn_file_path == "tests/bulkcm_1.xml"
@@ -88,7 +92,7 @@ def test_split():
 
     # split bulkcm.xml
     # considered all/any SubNetwork
-    for sn_id, sn_file_path in bulkcm.split("data/bulkcm.xml", "tests"):
+    for sn_id, sn_file_path in bulkcm.split("data/bulkcm.xml", "tests", output_fs=ofs):
         assert sn_id == "1"
         assert sn_file_path == "tests/bulkcm_1.xml"
         assert os.path.exists(sn_file_path)
@@ -113,36 +117,38 @@ def test_split():
     assert etree.tostring(source) == etree.tostring(target)
 
 
-def test_parse():
-    """ Test bulkcm.parse """
+def test_parse_output_to_csv_local_filesystem():
+    """Test bulkcm.parse"""
+
+    ofs = fs.LocalFileSystem()
 
     # remove all .csv and .yml files from data
     try:
         import glob
 
         for csv_file in glob.iglob("data/*.csv"):
-            os.remove(csv_file)
+            ofs.delete_file(csv_file)
 
         for csv_file in glob.iglob("data/*.yml"):
-            os.remove(csv_file)
+            ofs.delete_file(csv_file)
     except FileNotFoundError:
         pass
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
-    bulkcm.parse("data/bulkcm.xml", "data", stream)
+    bulkcm.parse("data/bulkcm.xml", "data", stream, output_fs=ofs)
 
     try:
         stream = bulkcm.BulkCmParser.stream_to_csv("data")
-        bulkcm.parse("data/bulkcm_empty.xml", "data", stream)
+        bulkcm.parse("data/bulkcm_empty.xml", "data", stream, output_fs=ofs)
     except Exception as e:
         assert str(e) == "Document is empty, line 1, column 1 (bulkcm_empty.xml, line 1)"
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
-    bulkcm.parse("data/bulkcm_no_configData.xml", "data", stream)
+    bulkcm.parse("data/bulkcm_no_configData.xml", "data", stream, output_fs=ofs)
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
     metadata, duration = bulkcm.parse(
-        "data/bulkcm_with_header_footer.xml", "data", stream
+        "data/bulkcm_with_header_footer.xml", "data", stream, output_fs=ofs
     )
 
     # verify metadata returned by parse
@@ -249,7 +255,11 @@ def test_parse():
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
     metadata, duration = bulkcm.parse(
-        "data/bulkcm_with_utrancell.xml", "data", stream, exclude_elements=["*"]
+        "data/bulkcm_with_utrancell.xml",
+        "data",
+        stream,
+        exclude_elements=["*"],
+        output_fs=ofs,
     )
 
     assert not (
@@ -281,6 +291,7 @@ def test_parse():
         stream,
         include_elements=["vsDataUtranCell"],
         exclude_elements=["*"],
+        output_fs=ofs,
     )
 
     assert os.path.exists("data/vsDataUtranCell-762627b0939d1ac04dadef2b58f194c1.csv")
@@ -318,7 +329,7 @@ def test_parse():
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
     metadata, duration = bulkcm.parse(
-        "data/bulkcm_with_vsdatacontainer.xml", "data", stream
+        "data/bulkcm_with_vsdatacontainer.xml", "data", stream, output_fs=ofs
     )
 
     with open(
@@ -368,7 +379,9 @@ def test_parse():
         ]
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
-    metadata, duration = bulkcm.parse("data/bulkcm_with_utrancell.xml", "data", stream)
+    metadata, duration = bulkcm.parse(
+        "data/bulkcm_with_utrancell.xml", "data", stream, output_fs=ofs
+    )
 
     with open(
         "data/vsDataUtranCell-762627b0939d1ac04dadef2b58f194c1.csv", newline=""
