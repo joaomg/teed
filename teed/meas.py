@@ -30,7 +30,7 @@ import typer
 
 import pyarrow as pa
 import pyarrow.dataset as ds
-
+import pyarrow.fs as fs
 
 # import yaml
 from lxml import etree
@@ -178,10 +178,10 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
     queue.put("DONE")
 
 
-def consume_to_csv(queue: Queue, lock: Lock, output_dir: str):
+def consume_to_csv(queue: Queue, lock: Lock, output_dir_or_bucket: str):
     """Serialize tables received from queue to CSV file.
 
-    Place the CSV file in the output dir (output_dir).
+    Place the CSV file in the output dir (output_dir_or_bucket).
 
     Create file if doesn't exist and appends data.
 
@@ -222,7 +222,7 @@ def consume_to_csv(queue: Queue, lock: Lock, output_dir: str):
             table_key = f"{table_name}_{gp}_{table_hash}"
 
             csv_path = path.normpath(
-                f"{output_dir}{path.sep}{table_name}-{gp}-{table_hash}.csv"
+                f"{output_dir_or_bucket}{path.sep}{table_name}-{gp}-{table_hash}.csv"
             )
 
             if not (path.exists(csv_path)):
@@ -278,10 +278,10 @@ def consume_to_csv(queue: Queue, lock: Lock, output_dir: str):
             continue
 
 
-def consume_ldn_natural_key_to_csv(queue: Queue, lock: Lock, output_dir: str):
+def consume_ldn_natural_key_to_csv(queue: Queue, lock: Lock, output_dir_or_bucket: str):
     """Serialize tables received from queue to CSV file.
 
-    Place the CSV file in the output dir (output_dir).
+    Place the CSV file in the output dir (output_dir_or_bucket).
 
     Create file if doesn't exist and appends data.
 
@@ -332,7 +332,7 @@ def consume_ldn_natural_key_to_csv(queue: Queue, lock: Lock, output_dir: str):
             table_key = f"{table_name}_{gp}_{table_hash}"
 
             csv_path = path.normpath(
-                f"{output_dir}{path.sep}{table_name}-{gp}-{table_hash}.csv"
+                f"{output_dir_or_bucket}{path.sep}{table_name}-{gp}-{table_hash}.csv"
             )
 
             if not (path.exists(csv_path)):
@@ -398,11 +398,12 @@ def consume_ldn_natural_key_to_csv(queue: Queue, lock: Lock, output_dir: str):
 def consume_ldn_natural_key_to_parquet(
     queue: Queue,
     lock: Lock,
-    output_dir: str,
+    output_dir_or_bucket: str,
     nedn_ignore_before="SubNetwork",
     ldn_ignore_before="SubNetwork",
     node_expression=None,
     node_partition_by=False,
+    output_fs=fs.LocalFileSystem(),
 ):
     """Serialize tables received from queue to Parquet file.
 
@@ -426,13 +427,14 @@ def consume_ldn_natural_key_to_parquet(
     ldn_ignore_before: str -> ignores the LDN before this member last occurrence
     node_expression: str -> use expression to calculate the node key and replace the nedn with it (reduces amount of data)
     node_partition_by: bool -> partition by node if True
+    output_fs: pyarrow.fs.FileSystem -> pyarrow Filesystem to output the dataset
     """
 
     if node_partition_by and not (node_expression):
         raise TeedException("We need a node_expression to partition the data by node!")
 
     def file_visitor(written_file):
-        """ PyArrow file visitor method, called when a new file is created """
+        """PyArrow file visitor method, called when a new file is created"""
 
         print(f"path={written_file.path}")
         print(f"size={written_file.size} bytes")
@@ -443,7 +445,7 @@ def consume_ldn_natural_key_to_parquet(
         return [datetime.strptime(my_datetime, "%Y%m%d%H%M%S")]
 
     def get_day_hh_mm(my_datetime: str) -> list:
-        """Return list of day: date, hh: int and mm: int from a datetime %Y%m%d%H%M%S string """
+        """Return list of day: date, hh: int and mm: int from a datetime %Y%m%d%H%M%S string"""
         return [
             datetime.strptime(my_datetime[0:8], "%Y%m%d"),
             int(my_datetime[8:10]),
@@ -545,7 +547,7 @@ def consume_ldn_natural_key_to_parquet(
                 if node_partition_by
                 else f"{columns_keys[-1]}-{gp}"
             )
-            parquet_path = path.normpath(f"{output_dir}{path.sep}{table_name}")
+            parquet_path = path.normpath(f"{output_dir_or_bucket}{path.sep}{table_name}")
 
             # PyArrow table
             # the table column names
@@ -619,11 +621,12 @@ def consume_ldn_natural_key_to_parquet(
             part = ds.partitioning(pa.schema(partition_fields))
 
             ds.write_dataset(
-                table,
-                parquet_path,
+                data=table,
+                base_dir=parquet_path,
                 basename_template=table_hash + "-{i}.parquet",
                 format="parquet",
                 partitioning=part,
+                filesystem=output_fs,
                 file_visitor=file_visitor,
                 existing_data_behavior="overwrite_or_ignore",
             )
@@ -646,7 +649,7 @@ def handler_stop(signum, frame):
 
 def parse(
     pathname: str,
-    output_dir: str,
+    output_dir_or_bucket: str,
     recursive: bool = False,
     consume=consume_to_csv,
     consume_kwargs={},
@@ -655,7 +658,7 @@ def parse(
 
     and places it in queue. The items in the queue are serialized
 
-    to CSV files in disk by a daemon consumer process.
+    to CSV files in local filesystem or object storage by a daemon consumer process.
 
     The producer, the parent process, waits for the consumer to finish.
 
@@ -674,14 +677,13 @@ def parse(
     signal.signal(signal.SIGTERM, handler_stop)
 
     try:
-
         # the consumer process
         consumer_proc = None
 
         consumer_proc = Process(
             target=consume,
             name="consumer",
-            args=(queue, lock, output_dir),
+            args=(queue, lock, output_dir_or_bucket),
             kwargs=consume_kwargs,
         )
         consumer_proc.daemon = True
@@ -709,9 +711,9 @@ def parse(
 
 @program.command(name="parse")
 def parse_program(pathname: str, output_dir: str, recursive: bool = False) -> None:
-    """Parse Mdc files returneb by pathname glob and
+    """Parse Mdc files returned by pathname glob and
 
-    place it's content in output directories CSV files
+    place it's content in output local filesystem directory CSV files.
 
     Command-line program for meas.parse function
 

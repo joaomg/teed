@@ -1,11 +1,11 @@
-from teed.bulkcm import program
 from typer.testing import CliRunner
+
+from teed.bulkcm import program
 
 runner = CliRunner()
 
 
 def test_bulkcm_probe_program():
-
     # valid bulkcm file
     result = runner.invoke(program, "probe data/bulkcm.xml")
     assert result.exit_code == 0
@@ -34,7 +34,6 @@ def test_bulkcm_probe_program():
 
 
 def test_bulkcm_split_program():
-
     # split bulkcm.xml to data directory, ignoring the SubNetwork 1
     result = runner.invoke(program, "split data/bulkcm.xml data -s dummyNetwork")
     assert result.exit_code == 0
@@ -66,7 +65,6 @@ def test_bulkcm_split_program():
 
 
 def test_bulkcm_parse_program():
-
     result = runner.invoke(program, "parse data/bulkcm.xml data")
     assert result.exit_code == 0
     assert result.stdout.count("Parsing data/bulkcm.xml")

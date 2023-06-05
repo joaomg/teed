@@ -53,7 +53,7 @@ Commands:
 
 ```shell
 (env) joaomg@mypc:~/teed$ python -m teed meas parse --help
-Usage: teed meas parse [OPTIONS] PATHNAME OUTPUT_DIR
+Usage: teed meas parse [OPTIONS] PATHNAME OUTPUT_DIR_OR_BUCKET
 
   Parse Mdc files returneb by pathname glob and
 
@@ -61,13 +61,13 @@ Usage: teed meas parse [OPTIONS] PATHNAME OUTPUT_DIR
 
   Command-line program for meas.parse function
 
-  Parameters:     meas/mdc pathname glob (str): pathname     search files
-  recursively in subdirectories (bool): recursive     output directory
-  (str): output_dir
+  Parameters: meas/mdc pathname glob (str): pathname search files
+  recursively in subdirectories (bool): recursive output directory (or bucket for object storage)
+  (str): output_dir_or_bucket
 
 Arguments:
   PATHNAME    [required]
-  OUTPUT_DIR  [required]
+  OUTPUT_DIR_OR_BUCKET  [required]
 
 Options:
   --recursive / --no-recursive  [default: False]

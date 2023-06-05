@@ -1,13 +1,14 @@
 import csv
+import datetime
 import hashlib
 import os
 from multiprocessing import Lock, Queue
 from os import path
 from queue import Empty
-from shutil import rmtree
+
 import pyarrow as pa
 import pyarrow.dataset as ds
-import datetime
+import pyarrow.fs as fs
 
 from teed import meas
 
@@ -16,7 +17,7 @@ def test_meas_parse():
     """Test meas.parse"""
 
     pathname = "data/mdc*.xml"
-    output_dir = "data"
+    output_dir_or_bucket = "data"
     recursive = False
 
     try:
@@ -24,7 +25,7 @@ def test_meas_parse():
     except FileNotFoundError:
         pass
 
-    meas.parse(pathname, output_dir, recursive)
+    meas.parse(pathname, output_dir_or_bucket, recursive)
 
     with open(
         "data/UtranCell-900-9995823c30bcf308b91ab0b66313e86a.csv", newline=""
@@ -109,7 +110,7 @@ def test_meas_parse_consume_ldn_natural_key():
     """
 
     pathname = "data/mdc_c3_1.xml"
-    output_dir = "data"
+    output_dir_or_bucket = "data"
     recursive = False
 
     try:
@@ -119,7 +120,7 @@ def test_meas_parse_consume_ldn_natural_key():
 
     meas.parse(
         pathname,
-        output_dir,
+        output_dir_or_bucket,
         recursive,
         consume=meas.consume_ldn_natural_key_to_csv,
     )
@@ -382,22 +383,32 @@ def test_meas_parse_consume_custom():
         ]
 
 
-def test_meas_parse_consume_parquet():
+def test_meas_parse_output_to_parquet_local_filesystem():
     """
     Use parquet consume method in meas.parse.
 
+    Output parquet files to the local filesystem.
+
     By default it partitions the data using the granularity period.
+
+    But in this test we also partition by Node.
     """
 
     pathname = "data/mdc*.xml"
-    output_dir = "data"
+    output_dir_or_bucket = "data"
 
-    rmtree("data/UtranCell-900", ignore_errors=True)
+    # output to MinIO file store
+    ofs = fs.LocalFileSystem()
 
     # partition by time
+    try:
+        ofs.delete_dir("data/UtranCell-900")
+    except FileNotFoundError:
+        pass
+
     meas.parse(
         pathname,
-        output_dir,
+        output_dir_or_bucket,
         recursive=False,
         consume=meas.consume_ldn_natural_key_to_parquet,
         consume_kwargs={
@@ -405,6 +416,7 @@ def test_meas_parse_consume_parquet():
             "ldn_ignore_before": "SubNetwork",
             "node_expression": None,
             "node_partition_by": False,
+            "output_fs": ofs,
         },
     )
 
@@ -412,6 +424,7 @@ def test_meas_parse_consume_parquet():
     dataset = ds.dataset(
         "data/UtranCell-900",
         format="parquet",
+        filesystem=ofs,
         partitioning=ds.partitioning(
             pa.schema(
                 [
@@ -487,13 +500,16 @@ def test_meas_parse_consume_parquet():
         },
     ]
 
-    rmtree("data/UtranCell-900", ignore_errors=True)
-
     # replace nedn by Node expression
     # partition time
+    try:
+        ofs.delete_dir("data/UtranCell-900")
+    except FileNotFoundError:
+        pass
+
     meas.parse(
         pathname,
-        output_dir,
+        output_dir_or_bucket,
         recursive=False,
         consume=meas.consume_ldn_natural_key_to_parquet,
         consume_kwargs={
@@ -501,6 +517,7 @@ def test_meas_parse_consume_parquet():
             "ldn_ignore_before": "SubNetwork",
             "node_expression": "nedn_dict.pop('ManagedElement')",
             "node_partition_by": False,
+            "output_fs": ofs,
         },
     )
 
@@ -508,6 +525,7 @@ def test_meas_parse_consume_parquet():
     dataset = ds.dataset(
         "data/UtranCell-900",
         format="parquet",
+        filesystem=ofs,
         partitioning=ds.partitioning(
             pa.schema(
                 [
@@ -577,9 +595,14 @@ def test_meas_parse_consume_parquet():
 
     # replace nedn by Node expression
     # partition by Node and time
+    try:
+        ofs.delete_dir("data/UtranCell-Node-900")
+    except FileNotFoundError:
+        pass
+
     meas.parse(
         pathname,
-        output_dir,
+        output_dir_or_bucket,
         recursive=False,
         consume=meas.consume_ldn_natural_key_to_parquet,
         consume_kwargs={
@@ -587,6 +610,7 @@ def test_meas_parse_consume_parquet():
             "ldn_ignore_before": "SubNetwork",
             "node_expression": "nedn_dict.pop('ManagedElement')",
             "node_partition_by": True,
+            "output_fs": ofs,
         },
     )
 
@@ -594,6 +618,7 @@ def test_meas_parse_consume_parquet():
     dataset = ds.dataset(
         "data/UtranCell-Node-900",
         format="parquet",
+        filesystem=ofs,
         partitioning=ds.partitioning(
             pa.schema(
                 [
