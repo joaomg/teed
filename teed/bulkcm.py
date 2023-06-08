@@ -15,6 +15,7 @@ from typing import Generator, List
 
 import typer
 import pyarrow.fs as fs
+from pyarrow.lib import ArrowInvalid
 
 from io import TextIOWrapper
 import yaml
@@ -282,7 +283,6 @@ class BulkCmParser:
             output filesystem (pyarrow.fs.FileSystem): output_fs
         """
 
-        csv_file = None
         writer = None
         writers = {}  # maps the node_key to it's writer
 
@@ -304,7 +304,6 @@ class BulkCmParser:
                     csv_path = output_fs.normalize_path(
                         f"{output_dir_or_bucket}{path.sep}{node_name}-{node_hash}.csv"
                     )
-                    # csv_file = open(csv_path, mode="w", newline="")
                     csv_bstream = output_fs.open_output_stream(csv_path, compression=None)
 
                     print(f"Created {csv_path}")
@@ -491,7 +490,7 @@ def split(
     Parameters:
         bulkcm file path (str): file_path
         output directory (str): output_dir_or_bucket
-        list of SubNetwork id's (list): subnetworks (if empty considerer all SubNetwork's)
+        list of SubNetwork id's (list): subnetworks (if empty consider all SubNetwork's)
 
     Yields:
         Tuple with the SubNetwork id and file path: generator(sn_id, sn_file_path)
@@ -640,7 +639,7 @@ def split_program(
     Parameters:
         bulkcm file path (str): file_path
         output directory (str): output_dir
-        list of SubNetwork id's (list): subnetworks (if empty considerer all SubNetwork's)
+        list of SubNetwork id's (list): subnetworks (if empty consider all SubNetwork's)
     """
 
     sn_count = 0
@@ -674,7 +673,7 @@ def split_program(
 
 
 def probe(
-    file_path: str,
+    file_uri: str,
     elements: list = [
         "ManagementNode",
         "MeContext",
@@ -691,7 +690,7 @@ def probe(
     Analysis the BulkCm file and counts the number of elements inside the SubNetwork(s)
 
     Parameters:
-        file_path (str): file_path
+        file_uri (str): file_uri (uri as in https://arrow.apache.org/docs/python/generated/pyarrow.fs.FileSystem.html#pyarrow.fs.FileSystem.from_uri)
         list of elements to count (list): elements
 
     Returns:
@@ -705,8 +704,15 @@ def probe(
     # stored in outcome dict
     bulkcm_info = {}
 
-    if not (path.exists(file_path)):
-        raise TeedException(f"Error, {file_path} doesn't exists")
+    try:
+        # create input filesystem and path from the uri
+        input_fs, path = fs.FileSystem.from_uri(file_uri)
+    except ArrowInvalid:
+        raise TeedException(f"Error, check if the {file_uri} uri exists .")
+
+    # check if the file exists in the filesystem
+    if input_fs.get_file_info(path).type == fs.FileType.NotFound:
+        raise TeedException(f"Error, {file_uri} doesn't exists")
 
     # add elements to tags
     # consider any namespace {*}
@@ -724,10 +730,10 @@ def probe(
 
     search_tags = list(set(search_tags))
 
-    try:
-        with open(file_path, mode="rb") as stream:
-            subnetworks = []
-
+    # with open(file_uri, mode="rb") as stream:
+    with input_fs.open_input_stream(path) as stream:
+        subnetworks = []
+        try:
             for event, element in etree.iterparse(
                 stream,
                 events=(
@@ -780,15 +786,15 @@ def probe(
                 if event == "end":
                     element.clear(keep_tail=True)
 
-    except etree.XMLSyntaxError as e:
-        raise TeedException(e)
+        except etree.XMLSyntaxError as e:
+            raise TeedException(e)
 
     return bulkcm_info
 
 
 @program.command(name="probe")
 def probe_program(
-    file_path: str,
+    file_path_or_uri: str,
     elements: List[str] = typer.Option(
         [
             "ManagementNode",
@@ -812,20 +818,26 @@ def probe_program(
     It's the command-line program for bulkcm.probe function
 
     Parameters:
-        file_path (str): file_path
+        file_path_or_uri (str): local file path or PyArrow uri
         list of elements to count (list): elements
-        list of SubNetwork id's (list): subnetworks (if empty considerer all SubNetwork's)
+        list of SubNetwork id's (list): subnetworks (if empty consider all SubNetwork's)
     """
 
     bulkcm_info = []
 
-    print(f"Probing {file_path}")
+    print(f"Probing {file_path_or_uri}")
     print(f"Searching for {', '.join(elements)} elements inside SubNetworks")
 
     start = datetime.now()
 
+    # check if file_path_or_uri is a local file path of a uri
+    if path.exists(file_path_or_uri):
+        file_uri = f"file://{path.abspath(file_path_or_uri)}"
+    else:
+        file_uri = file_path_or_uri
+
     try:
-        bulkcm_info = probe(file_path, elements)
+        bulkcm_info = probe(file_uri, elements)
 
     except TeedException as e:
         typer.secho(str(e), err=True, fg=typer.colors.RED, bold=True)

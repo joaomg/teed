@@ -41,6 +41,46 @@ ofs = fs.S3FileSystem(
     filestore_running == False,
     reason="Needs the MinIO file store running in http://localhost:9000",
 )
+def test_bulkcm_probe_file_from_file_store():
+    # probe the data/bulkcm.xml file in MinIO localhost:9000
+
+    # delete remote file and recreate it
+    try:
+        ofs.delete_file("data/bulkcm.xml")
+    except FileNotFoundError:
+        pass
+
+    fs.copy_files(
+        "./data/bulkcm.xml",
+        "data/bulkcm.xml",
+        source_filesystem=fs.LocalFileSystem(),
+        destination_filesystem=ofs,
+    )
+
+    # probe remote file
+    assert bulkcm.probe(
+        f"s3://{ACCESS_KEY}:{SECRET_KEY}@data/bulkcm.xml?scheme=http&endpoint_override=localhost:9000"
+    ) == {
+        "encoding": "UTF-8",
+        "nsmap": {
+            None: "http://www.3gpp.org/ftp/specs/archive/32_series/32.615#configData",
+            "xn": "http://www.3gpp.org/ftp/specs/archive/32_series/32.625#genericNrm",
+        },
+        "fileHeader": None,
+        "configData": [
+            {
+                "dnPrefix": "DC=a1.companyNN.com",
+                "SubNetwork(s)": [{"id": "1", "ManagementNode": 1, "ManagedElement": 2}],
+            }
+        ],
+        "fileFooter": None,
+    }
+
+
+@pytest.mark.skipif(
+    filestore_running == False,
+    reason="Needs the MinIO file store running in http://localhost:9000",
+)
 def test_bulkcm_split_output_to_file_store():
     # output to MinIO file store
     ofs = fs.S3FileSystem(

@@ -29,7 +29,7 @@ def test_bulkcm_probe_program():
     assert result.exit_code == 1
     assert result.stdout.count("Probing data/tag_mismatch.xml")
     assert result.stdout.count(
-        "Opening and ending tag mismatch: abx line 15 and abcMax, line 15, column 65 (tag_mismatch.xml, line 15)"
+        "Opening and ending tag mismatch: abx line 15 and abcMax, line 15, column 65 (<string>, line 15)"
     )
 
 

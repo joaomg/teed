@@ -1,4 +1,5 @@
 # bulkcm
+
 The BulkCm module supports probing, spliting and parsing of Bulkcm 32.615 specification, version 9.2.0 (2011-01) XML files:
 
 ```xml
@@ -35,40 +36,74 @@ https://www.etsi.org/deliver/etsi_ts/132600_132699/132615/09.02.00_60/ts_132615v
 https://portal.3gpp.org/desktopmodules/Specifications/SpecificationDetails.aspx?specificationId=2086
 
 ```shell
-env) joaomg@mypc:~/teed$ python -m teed bulkcm
+(env) joaomg@mypc:~/teed$ python -m teed bulkcm
+
 Usage: teed bulkcm [OPTIONS] COMMAND [ARGS]...
 
 Options:
   --help  Show this message and exit.
 
 Commands:
-  parse  Parse BulkCm file and place it's content in output directories CSV...
+  parse  Parse BulkCm file and place its content in output directories CSV...
   probe  Probe a BulkCm file BulkCm XML format as described in ETSI TS 132...
   split  Split a BulkCm file by SubNetwork element using the...
-(env) joaomg@mypc:~/teed$ 
+(env) joaomg@mypc:~/teed$
 ```
 
-Each bulkcm subcommand has distinct options:
+Each bulkcm subcommand has distinct options.
+
+Which can be explorer by calling the command with help.
 
 ```shell
 (env) joaomg@mypc:~/teed$ python -m teed bulkcm probe --help
-Usage: teed bulkcm probe [OPTIONS] FILE_PATH
+
+Usage: teed bulkcm probe [OPTIONS] FILE_PATH_OR_URI
 
   Probe a BulkCm file
+  ...
+```
 
-  BulkCm XML format as described in ETSI TS 132 615 https://www.etsi.org/del
-  iver/etsi_ts/132600_132699/132615/09.02.00_60/ts_132615v090200p.pdf
+To analyze a local file, probe its content:
 
-  Prints to console the namespaces, SubNetwork and number of ManagedElement
+```shell
+(env) joaomg@mypc:~/teed$ python -m teed bulkcm probe data/bulkcm.xml
 
-  Command-line program for bulkcm.probe function
+Probing data/bulkcm.xml
+Searching for ManagementNode, MeContext, ManagedElement, ExternalGsmCell, ExternalUtranCell elements inside SubNetworks
+file:///mnt/c/joaomg/teed/data/bulkcm.xml
+{'encoding': 'UTF-8',
+ 'nsmap': {None: 'http://www.3gpp.org/ftp/specs/archive/32_series/32.615#configData',
+           'xn': 'http://www.3gpp.org/ftp/specs/archive/32_series/32.625#genericNrm'},
+ 'fileHeader': None,
+ 'configData': [{'dnPrefix': 'DC=a1.companyNN.com',
+                 'SubNetwork(s)': [{'id': '1',
+                                    'ManagementNode': 1,
+                                    'ManagedElement': 2}]}],
+ 'fileFooter': None}
+Duration: 0:00:00.004816
+```
 
-  Parameters:     file_path (str): file_path
+The probe command accepts the relative and absolute path.
 
-Arguments:
-  FILE_PATH  [required]
+And also a URI, as defined in the [PyArrow FileSystem.from_uri method](https://arrow.apache.org/docs/python/generated/pyarrow.fs.FileSystem.html#pyarrow.fs.FileSystem.from_uri).
 
-Options:
-  --help  Show this message and exit.
-(env) joaomg@mypc:~/teed$ 
+Which can be used to analyze files in a remote file store, such as S3.
+
+For example, to probe a file in a local MinIO instance:
+
+```shell
+(env) joaomg@mypc:~/teed$ python -m teed bulkcm probe "s3://1atuJoRDF8iy2BR40Yv6:6EKNs22XJvMX7RiXWMwW84xxO1ppnStkA6C6kEDh@data/bulkcm.xml?scheme=http&endpoint_override=localhost:9000"
+
+Probing s3://1atuJoRDF8iy2BR40Yv6:6EKNs22XJvMX7RiXWMwW84xxO1ppnStkA6C6kEDh@data/bulkcm.xml?scheme=http&endpoint_override=localhost:9000
+Searching for ManagementNode, MeContext, ManagedElement, ExternalGsmCell, ExternalUtranCell elements inside SubNetworks
+{'encoding': 'UTF-8',
+ 'nsmap': {None: 'http://www.3gpp.org/ftp/specs/archive/32_series/32.615#configData',
+           'xn': 'http://www.3gpp.org/ftp/specs/archive/32_series/32.625#genericNrm'},
+ 'fileHeader': None,
+ 'configData': [{'dnPrefix': 'DC=a1.companyNN.com',
+                 'SubNetwork(s)': [{'id': '1',
+                                    'ManagementNode': 1,
+                                    'ManagedElement': 2}]}],
+ 'fileFooter': None}
+Duration: 0:00:00.093180
 ```

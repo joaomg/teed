@@ -12,7 +12,9 @@ def test_probe():
     """Test bulkcm.probe"""
 
     # default probing
-    assert bulkcm.probe("data/bulkcm.xml") == {
+    file_uri = os.path.abspath("data/bulkcm.xml")
+
+    assert bulkcm.probe(file_uri) == {
         "encoding": "UTF-8",
         "nsmap": {
             None: "http://www.3gpp.org/ftp/specs/archive/32_series/32.615#configData",
@@ -29,7 +31,7 @@ def test_probe():
     }
 
     # probe by ManagementNode and ManagedElement
-    assert bulkcm.probe("data/bulkcm.xml", ["ManagementNode", "ManagedElement"]) == {
+    assert bulkcm.probe(file_uri, ["ManagementNode", "ManagedElement"]) == {
         "encoding": "UTF-8",
         "nsmap": {
             None: "http://www.3gpp.org/ftp/specs/archive/32_series/32.615#configData",
@@ -46,9 +48,10 @@ def test_probe():
     }
 
     # an invalid XML file raises an exception
+    file_uri = os.path.abspath("data/tag_mismatch.xml")
     try:
         bulkcm_file = []
-        bulkcm_file = bulkcm.probe("data/tag_mismatch.xml")
+        bulkcm_file = bulkcm.probe(file_uri)
     except Exception as e:
         # check the outcome is still an empty list
         assert bulkcm_file == []
@@ -57,7 +60,7 @@ def test_probe():
         # signals an invalid XML doc
         assert (
             str(e)
-            == "Opening and ending tag mismatch: abx line 15 and abcMax, line 15, column 65 (tag_mismatch.xml, line 15)"
+            == "Opening and ending tag mismatch: abx line 15 and abcMax, line 15, column 65 (<string>, line 15)"
         )
 
 
