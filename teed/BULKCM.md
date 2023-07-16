@@ -92,9 +92,9 @@ Which can be used to analyze files in a remote file store, such as S3.
 For example, to probe a file in a local MinIO instance:
 
 ```shell
-(env) joaomg@mypc:~/teed$ python -m teed bulkcm probe "s3://1atuJoRDF8iy2BR40Yv6:6EKNs22XJvMX7RiXWMwW84xxO1ppnStkA6C6kEDh@data/bulkcm.xml?scheme=http&endpoint_override=localhost:9000"
+(env) joaomg@mypc:~/teed$ python -m teed bulkcm probe "s3://my-access-key:my-secret-key@data/bulkcm.xml?scheme=http&endpoint_override=localhost:9000"
 
-Probing s3://1atuJoRDF8iy2BR40Yv6:6EKNs22XJvMX7RiXWMwW84xxO1ppnStkA6C6kEDh@data/bulkcm.xml?scheme=http&endpoint_override=localhost:9000
+Probing s3://my-access-key:my-secret-key@data/bulkcm.xml?scheme=http&endpoint_override=localhost:9000
 Searching for ManagementNode, MeContext, ManagedElement, ExternalGsmCell, ExternalUtranCell elements inside SubNetworks
 {'encoding': 'UTF-8',
  'nsmap': {None: 'http://www.3gpp.org/ftp/specs/archive/32_series/32.615#configData',

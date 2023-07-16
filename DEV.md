@@ -79,8 +79,8 @@ Set them as environment variables.
 An exem
 
 ```bash
-export ACCESS_KEY=1atuJoRDF8iy2BR40Yv6
-export SECRET_KEY=6EKNs22XJvMX7RiXWMwW84xxO1ppnStkA6C6kEDh
+export ACCESS_KEY=my-access-key
+export SECRET_KEY=my-secret-key
 ```
 
 In the application root directory run the tests:

@@ -13,8 +13,8 @@ from teed import bulkcm, meas
 
 # file store credentials
 # create/fetch in MinIO
-ACCESS_KEY = os.environ.get("ACCESS_KEY", "1atuJoRDF8iy2BR40Yv6")
-SECRET_KEY = os.environ.get("SECRET_KEY", "6EKNs22XJvMX7RiXWMwW84xxO1ppnStkA6C6kEDh")
+ACCESS_KEY = os.environ.get("ACCESS_KEY")
+SECRET_KEY = os.environ.get("SECRET_KEY")
 
 try:
     # access the local MinIO instance
