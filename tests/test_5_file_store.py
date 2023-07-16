@@ -1,3 +1,4 @@
+import os
 import csv
 import datetime
 from io import TextIOWrapper
@@ -12,21 +13,29 @@ from teed import bulkcm, meas
 
 # file store credentials
 # create/fetch in MinIO
-ACCESS_KEY = "1atuJoRDF8iy2BR40Yv6"
-SECRET_KEY = "6EKNs22XJvMX7RiXWMwW84xxO1ppnStkA6C6kEDh"
+ACCESS_KEY = os.environ.get("ACCESS_KEY", "1atuJoRDF8iy2BR40Yv6")
+SECRET_KEY = os.environ.get("SECRET_KEY", "6EKNs22XJvMX7RiXWMwW84xxO1ppnStkA6C6kEDh")
 
 try:
+    # access the local MinIO instance
+    # with permission to create buckets
+    # allow_bucket_creation
     ofs = fs.S3FileSystem(
         access_key=ACCESS_KEY,
         secret_key=SECRET_KEY,
         scheme="http",
         endpoint_override="localhost:9000",
+        allow_bucket_creation=True,
     )
     ofs.create_dir("data")
     filestore_running = True
-except:
+except Exception as e:
     # file store isn't available in localhost:9000
     filestore_running = False
+
+    # output the Exception, just to understand what went wrong...
+    # place a failed assert somewhere below to see this
+    print(e)
 
 # output to MinIO file store
 ofs = fs.S3FileSystem(
