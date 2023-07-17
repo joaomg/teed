@@ -468,22 +468,14 @@ def subnetwork_writer(
                     xf.write(etree.Element("fileFooter", attrib=fileFooter["attrib"]))
 
 
-def split(
-    file_path: str,
-    output_dir_or_bucket: str,
-    subnetworks: list = [],
-    output_fs: fs.FileSystem = fs.LocalFileSystem(),
+def split_by_subnetwork(
+    file_path_or_uri: str, output_dir_or_bucket: str, subnetworks: list = []
 ) -> Generator[tuple, None, None]:
-    """Split a BulkCm file by SubNetwork element
-    using the split_by_subnetwork function.
-
-    Write the SubNetwork(s) ElementTree to new file(s).
+    """Search and write a SubNetwork(s) ElementTree to new file(s).
 
     If subnetworks contains values, these are the SubNetwork id's
 
-    which will be split to files. Other SubNetwork, not present in the list
-
-    are to be ignore.
+    which will be split to files. Other SubNetwork, not present in the list are to be ignore.
 
     By default subnetworks is empty. All SubNetwork are to be processed and split to a respective file.
 
@@ -498,6 +490,34 @@ def split(
     Raise:
         TeedException (inside the split_by_subnetwork call)
     """
+
+    # handle input
+    if path.exists(file_path_or_uri):
+        # local file
+        file_path = file_path_or_uri
+    else:
+        # URI
+        # copy file to local filesystem for splitting
+        input_fs, file_path = fs.FileSystem.from_uri(file_path_or_uri)
+
+        fs.copy_files(
+            file_path,
+            file_path,
+            source_filesystem=input_fs,
+            destination_filesystem=fs.LocalFileSystem(),
+        )
+
+    # handle output
+    if path.exists(output_dir_or_bucket):
+        # if the output_dir_or_bucket
+        # exists as a directory in the
+        # local filesystem
+        output_fs = fs.LocalFileSystem()
+        output_dir = output_dir_or_bucket
+    else:
+        # create the output filesystem from
+        # the output_dir_or_bucket URI
+        output_fs, output_dir = fs.FileSystem.from_uri(output_dir_or_bucket)
 
     # read file footer
     footer = []
@@ -572,7 +592,7 @@ def split(
 
                     # subnetwork will be split to it's file
                     sn_file_path = output_fs.normalize_path(
-                        f"{output_dir_or_bucket}{path.sep}{file_name_without_ext}_{'_'.join(subnetwork_ids)}.{file_ext}"
+                        f"{output_dir}{path.sep}{file_name_without_ext}_{'_'.join(subnetwork_ids)}.{file_ext}"
                     )
 
                     subnetwork_writer(
@@ -618,6 +638,31 @@ def split(
             raise TeedException(e)
 
 
+def split(file_path: str, output_dir: str, subnetworks: List[str] = []) -> None:
+    """Split a BulkCm file by SubNetwork element using the split_by_subnetwork function.
+
+    Write the SubNetwork(s) ElementTree to new file(s).
+
+    Calls the bulkcm.split_by_subnetwork function and
+
+    stores each SubNetwork id and file produced specific lists (sn_ids and sn_file_paths)
+
+    Parameters:
+        bulkcm file path (str): file_path
+        output directory (str): output_dir
+        list of SubNetwork id's (list): subnetworks (if empty consider all SubNetwork's)
+    """
+
+    sn_ids = []
+    sn_file_paths = []
+
+    for sn_id, sn_file_path in split_by_subnetwork(file_path, output_dir, subnetworks):
+        sn_ids.append(sn_id)
+        sn_file_paths.append(sn_file_path)
+
+    return sn_ids, sn_file_paths
+
+
 @program.command(name="split")
 def split_program(
     file_path: str,
@@ -645,12 +690,15 @@ def split_program(
     sn_count = 0
     sn_ignored = 0
 
-    print(f"Spliting {file_path} to {output_dir}")
+    print(f"Splitting {file_path} to {output_dir}")
 
     start = datetime.now()
 
     try:
-        for sn_id, sn_file_path in split(file_path, output_dir, subnetworks):
+        sn_ids, sn_file_paths = split(file_path, output_dir, subnetworks)
+        for i, sn_file_path in enumerate(sn_file_paths):
+            sn_id = sn_ids[i]
+
             if sn_file_path is not None:
                 # processed SubNetwork
                 print(f"SubNetwork {sn_id} in {sn_file_path}")
@@ -690,7 +738,7 @@ def probe(
     Analysis the BulkCm file and counts the number of elements inside the SubNetwork(s)
 
     Parameters:
-        file_uri (str): file_uri (uri as in https://arrow.apache.org/docs/python/generated/pyarrow.fs.FileSystem.html#pyarrow.fs.FileSystem.from_uri)
+        file_uri (str): file_uri (URI as in https://arrow.apache.org/docs/python/generated/pyarrow.fs.FileSystem.html#pyarrow.fs.FileSystem.from_uri)
         list of elements to count (list): elements
 
     Returns:
@@ -818,7 +866,7 @@ def probe_program(
     It's the command-line program for bulkcm.probe function
 
     Parameters:
-        file_path_or_uri (str): local file path or PyArrow uri
+        file_path_or_uri (str): local file path or PyArrow URI
         list of elements to count (list): elements
         list of SubNetwork id's (list): subnetworks (if empty consider all SubNetwork's)
     """
@@ -830,7 +878,7 @@ def probe_program(
 
     start = datetime.now()
 
-    # check if file_path_or_uri is a local file path of a uri
+    # check if file_path_or_uri is a local file path of a URI
     if path.exists(file_path_or_uri):
         file_uri = f"file://{path.abspath(file_path_or_uri)}"
     else:

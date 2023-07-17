@@ -94,7 +94,9 @@ https://www.etsi.org/images/files/IPR/etsi-ipr-policy.pdf
 
 The teed library aims to be a comprehensive parser toolkit for telecommunications engineering data.
 
-It's inspired by [frictionless-py](https://github.com/frictionlessdata/frictionless-py). In fact, a production ready data pipeline can naturally glue together teed and frictionless-py.
+It's inspired by [frictionless-py](https://github.com/frictionlessdata/frictionless-py).
+
+In fact, a production ready data pipeline can naturally glue together teed and frictionless-py.
 
 The former extracting content from telco raw files to CSV.
 
@@ -111,14 +113,14 @@ And the later validating, cleaning and transforming data into a query ready syst
     +---------------+
     | Tabular files |
     |               |
-    |      .csv     |
+    |     .csv      |
+    |    Parquet    |
     +---------------+
             |
             |   frictionless-py (clean, validate, transform, publish)
             V
     +---------------+
     |    Dataset    |
-    |    Parquet    |
     |     RDBMs     |
     +---------------+
 

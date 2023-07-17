@@ -37,7 +37,7 @@ def test_bulkcm_split_program():
     # split bulkcm.xml to data directory, ignoring the SubNetwork 1
     result = runner.invoke(program, "split data/bulkcm.xml data -s dummyNetwork")
     assert result.exit_code == 0
-    assert result.stdout.count("Spliting data/bulkcm.xml to data")
+    assert result.stdout.count("Splitting data/bulkcm.xml to data")
     assert result.stdout.count("Ignored SubNetwork 1")
     assert result.stdout.count("SubNetwork processed: #0")
     assert result.stdout.count("SubNetwork ignored: #1")
@@ -45,7 +45,7 @@ def test_bulkcm_split_program():
     # split bulkcm.xml to data directory
     result = runner.invoke(program, "split data/bulkcm.xml data")
     assert result.exit_code == 0
-    assert result.stdout.count("Spliting data/bulkcm.xml to data")
+    assert result.stdout.count("Splitting data/bulkcm.xml to data")
     assert result.stdout.count("SubNetwork 1 in data/bulkcm_1.xml")
     assert result.stdout.count("SubNetwork processed: #1")
     assert result.stdout.count("SubNetwork ignored: #0")
@@ -58,7 +58,7 @@ def test_bulkcm_split_program():
     # invalid xml file
     result = runner.invoke(program, "split data/tag_mismatch.xml data")
     assert result.exit_code == 1
-    assert result.stdout.count("Spliting data/tag_mismatch.xml to data")
+    assert result.stdout.count("Splitting data/tag_mismatch.xml to data")
     assert result.stdout.count(
         "Opening and ending tag mismatch: abx line 15 and abcMax, line 15, column 65 (tag_mismatch.xml, line 15)"
     )

@@ -75,10 +75,49 @@ def test_split():
     except FileNotFoundError:
         pass
 
+    sn_ids, sn_file_paths = bulkcm.split("data/bulkcm.xml", "tests")
+
+    sn_id = sn_ids.pop()
+    sn_file_path = sn_file_paths.pop()
+
+    assert sn_id == "1"
+    assert sn_file_path == "tests/bulkcm_1.xml"
+
+    # compare contents with the input
+    # they must be the same since there's
+    # only a SubNetwork in bulkcm.xml
+    # using ns_clean we ignore the extra ns
+    # placed in the SubNetwork elements
+    parser = etree.XMLParser(
+        no_network=True,
+        ns_clean=True,
+        remove_blank_text=True,
+        remove_comments=True,
+        remove_pis=True,
+        huge_tree=True,
+        recover=False,
+    )
+    source = etree.parse("data/bulkcm.xml", parser=parser)
+    target = etree.parse(sn_file_path, parser=parser)
+
+    assert etree.tostring(source) == etree.tostring(target)
+
+
+def test_split_by_subnetwork():
+    """Test bulkcm.split_by_subnetwork"""
+
+    ofs = fs.LocalFileSystem()
+
+    # remove tests/bulkcm_SubNetwork_1.xml if exists
+    try:
+        ofs.delete_file("tests/bulkcm_1.xml")
+    except FileNotFoundError:
+        pass
+
     # split bulkcm.xml
     # ignore SubNetwork with id "1"
-    for sn_id, sn_file_path in bulkcm.split(
-        "data/bulkcm.xml", "tests", subnetworks=["dummyNetwork"], output_fs=ofs
+    for sn_id, sn_file_path in bulkcm.split_by_subnetwork(
+        "data/bulkcm.xml", "tests", subnetworks=["dummyNetwork"]
     ):
         assert sn_id == "1"
         assert sn_file_path is None
@@ -86,8 +125,8 @@ def test_split():
 
     # split bulkcm.xml
     # considered SubNetwork with id "1"
-    for sn_id, sn_file_path in bulkcm.split(
-        "data/bulkcm.xml", "tests", subnetworks=["1"], output_fs=ofs
+    for sn_id, sn_file_path in bulkcm.split_by_subnetwork(
+        "data/bulkcm.xml", "tests", subnetworks=["1"]
     ):
         assert sn_id == "1"
         assert sn_file_path == "tests/bulkcm_1.xml"
@@ -95,7 +134,7 @@ def test_split():
 
     # split bulkcm.xml
     # considered all/any SubNetwork
-    for sn_id, sn_file_path in bulkcm.split("data/bulkcm.xml", "tests", output_fs=ofs):
+    for sn_id, sn_file_path in bulkcm.split_by_subnetwork("data/bulkcm.xml", "tests"):
         assert sn_id == "1"
         assert sn_file_path == "tests/bulkcm_1.xml"
         assert os.path.exists(sn_file_path)

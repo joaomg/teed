@@ -90,20 +90,92 @@ def test_bulkcm_probe_file_from_file_store():
     filestore_running == False,
     reason="Needs the MinIO file store running in http://localhost:9000",
 )
-def test_bulkcm_split_output_to_file_store():
-    # output to MinIO file store
-    ofs = fs.S3FileSystem(
-        access_key=ACCESS_KEY,
-        secret_key=SECRET_KEY,
-        scheme="http",
-        endpoint_override="localhost:9000",
+def test_bulkcm_split_output_from_and_to_file_store():
+    # input file is a URI
+    # on the file store
+    input_uri = f"s3://{ACCESS_KEY}:{SECRET_KEY}@data/bulkcm.xml?scheme=http&endpoint_override=localhost:9000"
+
+    # create filesystem from data bucket URI
+    ifs, _ = fs.FileSystem.from_uri(input_uri)
+
+    # delete remote file data/bulkcm.xml
+    # and copy from local filesystem
+    try:
+        ifs.delete_file("data/bulkcm.xml")
+    except FileNotFoundError:
+        pass
+
+    fs.copy_files(
+        "./data/bulkcm.xml",
+        "data/bulkcm.xml",
+        source_filesystem=fs.LocalFileSystem(),
+        destination_filesystem=ifs,
     )
+
+    # output split xml to directory
+    # bulkcm.xml-split-output in bucket data
+    # on the localhost:9000 file store
+    output_uri = f"s3://{ACCESS_KEY}:{SECRET_KEY}@data/bulkcm.xml-split-output?scheme=http&endpoint_override=localhost:9000"
+
+    # create filesystem from data bucket URI
+    ofs, _ = fs.FileSystem.from_uri(output_uri)
+
+    # delete remote dir and contents
+    try:
+        ofs.delete_file("data/bulkcm.xml-split-output")
+    except FileNotFoundError:
+        pass
 
     # split bulkcm.xml
     # considered all/any SubNetwork
-    for sn_id, sn_file_path in bulkcm.split(
-        "data/bulkcm.xml", "data/bulkcm.xml-split-output", output_fs=ofs
-    ):
+    sn_ids, sn_file_paths = bulkcm.split(input_uri, output_uri)
+
+    sn_id = sn_ids.pop()
+    sn_file_path = sn_file_paths.pop()
+
+    assert sn_id == "1"
+    assert sn_file_path == "data/bulkcm.xml-split-output/bulkcm_1.xml"
+    assert (ofs.get_file_info(sn_file_path)).type == fs.FileType.File
+
+    # compare contents with the input
+    # they must be the same since there's
+    # only a SubNetwork in bulkcm.xml
+    # using ns_clean we ignore the extra ns
+    # placed in the SubNetwork elements
+    parser = etree.XMLParser(
+        no_network=True,
+        ns_clean=True,
+        remove_blank_text=True,
+        remove_comments=True,
+        remove_pis=True,
+        huge_tree=True,
+        recover=False,
+    )
+    source = etree.parse("data/bulkcm.xml", parser=parser)
+    target = etree.parse(ofs.open_input_stream(sn_file_path), parser=parser)
+
+    assert etree.tostring(source) == etree.tostring(target)
+
+
+@pytest.mark.skipif(
+    filestore_running == False,
+    reason="Needs the MinIO file store running in http://localhost:9000",
+)
+def test_bulkcm_split_by_subnetwork_output_to_file_store():
+    output_uri = f"s3://{ACCESS_KEY}:{SECRET_KEY}@data/bulkcm.xml-split-output?scheme=http&endpoint_override=localhost:9000"
+
+    # create filesystem from data bucket URI
+    ofs, _ = fs.FileSystem.from_uri(output_uri)
+
+    # delete remote dir and contents
+    try:
+        ofs.delete_file("data/bulkcm.xml-split-output")
+    except FileNotFoundError:
+        pass
+
+    # split bulkcm.xml
+    # considered all/any SubNetwork
+    for sn_id, sn_file_path in bulkcm.split_by_subnetwork("data/bulkcm.xml", output_uri):
         assert sn_id == "1"
         assert sn_file_path == "data/bulkcm.xml-split-output/bulkcm_1.xml"
         assert (ofs.get_file_info(sn_file_path)).type == fs.FileType.File

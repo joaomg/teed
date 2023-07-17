@@ -1,6 +1,6 @@
 # bulkcm
 
-The BulkCm module supports probing, spliting and parsing of Bulkcm 32.615 specification, version 9.2.0 (2011-01) XML files:
+The BulkCm module supports probing, Splitting and parsing of Bulkcm 32.615 specification, version 9.2.0 (2011-01) XML files:
 
 ```xml
 <?xml version='1.0' encoding='UTF-8'?>
