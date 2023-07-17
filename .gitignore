@@ -105,7 +105,6 @@ celerybeat.pid
 .env
 .venv
 .venv38
-.venv38
 .wvenv
 env/
 venv/
