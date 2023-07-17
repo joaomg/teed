@@ -47,9 +47,13 @@ cp config_minio.env /etc/default/minio/config_minio.env
 
 The config_minio.env sets the env variables:
 
-- MINIO_ROOT_USER myminioadmin
-- MINIO_ROOT_PASSWORD bigSecret2023
 - MINIO_VOLUMES "/mnt/data"
+
+Solely for development in the local machine we aren't setting either
+
+MINIO_ROOT_USER or MINIO_ROOT_PASSWORD.
+
+We are using the default minioadmin.
 
 Create the /mnt/data directory which will hold the MinIO data.
 
