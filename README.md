@@ -1,6 +1,6 @@
 # teed
 
-[![Registry](https://img.shields.io/static/v1?label=pipy&message=v0.0.6&color=informational)](https://pypi.python.org/pypi/teed)
+[![Registry](https://img.shields.io/static/v1?label=pipy&message=v0.0.8.2&color=informational)](https://pypi.python.org/pypi/teed)
 [![Codebase](https://img.shields.io/badge/github-main-brightgreen)](https://github.com/joaomg/teed)
 
 Telco engineering data library

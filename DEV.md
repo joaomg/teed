@@ -83,13 +83,14 @@ Set them as environment variables.
 An exem
 
 ```bash
-export ACCESS_KEY=my-access-key
-export SECRET_KEY=my-secret-key
+export ACCESS_KEY=S2ieooLxhVY9jqxS8Upy
+export SECRET_KEY=9u7AoHMDDdoXxQm39YQpfk0yJmSKjuH3DeS3sNq2
 ```
 
 In the application root directory run the tests:
 
 ```bash
+pip install -r requirements.test.txt
 python -m pytest tests
 ```
 
