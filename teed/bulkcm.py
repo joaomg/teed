@@ -500,6 +500,10 @@ def split_by_subnetwork(
         # copy file to local filesystem for splitting
         input_fs, file_path = fs.FileSystem.from_uri(file_path_or_uri)
 
+        # create destination local dir
+        output_dir = path.dirname(file_path)
+        os.makedirs(output_dir, exist_ok=True)
+
         fs.copy_files(
             file_path,
             file_path,
