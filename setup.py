@@ -28,7 +28,8 @@ TESTS_REQUIRE = [
 EXTRAS_REQUIRE = {
     "dev": TESTS_REQUIRE,
 }
-INSTALL_REQUIRES = ["lxml>=4.6.3", "typer>=0.3.2", "pyyaml>=5.4.1"]
+
+INSTALL_REQUIRES = ["lxml>=4.9.2", "typer>=0.7.0", "PyYAML>=6.0", "pyarrow>=11.0.0"]
 README = read("README.md")
 VERSION = read(PACKAGE, "assets", "VERSION")
 PACKAGES = find_packages(exclude=["tests"])
@@ -72,10 +73,9 @@ setup(
         "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
         "Natural Language :: English",
         "Operating System :: OS Independent",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.10",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Text Processing :: Markup :: XML",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.10",
 )

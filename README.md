@@ -1,6 +1,6 @@
 # teed
 
-[![Registry](https://img.shields.io/static/v1?label=pipy&message=v0.0.6&color=informational)](https://pypi.python.org/pypi/teed)
+[![Registry](https://img.shields.io/static/v1?label=pipy&message=v0.0.8.2&color=informational)](https://pypi.python.org/pypi/teed)
 [![Codebase](https://img.shields.io/badge/github-main-brightgreen)](https://github.com/joaomg/teed)
 
 Telco engineering data library
@@ -94,7 +94,9 @@ https://www.etsi.org/images/files/IPR/etsi-ipr-policy.pdf
 
 The teed library aims to be a comprehensive parser toolkit for telecommunications engineering data.
 
-It's inspired by [frictionless-py](https://github.com/frictionlessdata/frictionless-py). In fact, a production ready data pipeline can naturally glue together teed and frictionless-py.
+It's inspired by [frictionless-py](https://github.com/frictionlessdata/frictionless-py).
+
+In fact, a production ready data pipeline can naturally glue together teed and frictionless-py.
 
 The former extracting content from telco raw files to CSV.
 
@@ -111,14 +113,14 @@ And the later validating, cleaning and transforming data into a query ready syst
     +---------------+
     | Tabular files |
     |               |
-    |      .csv     |
+    |     .csv      |
+    |    Parquet    |
     +---------------+
             |
             |   frictionless-py (clean, validate, transform, publish)
             V
     +---------------+
     |    Dataset    |
-    |    Parquet    |
     |     RDBMs     |
     +---------------+
 
