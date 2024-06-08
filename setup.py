@@ -28,7 +28,7 @@ TESTS_REQUIRE = [
 EXTRAS_REQUIRE = {
     "dev": TESTS_REQUIRE,
 }
-INSTALL_REQUIRES = ["lxml>=4.6.3", "typer>=0.3.2", "pyyaml>=5.4.1"]
+INSTALL_REQUIRES = ["lxml>=4.6.3", "typer>=0.3.2", "pyyaml>=5.4.1", "pyarrow>=11.0.0"]
 README = read("README.md")
 VERSION = read(PACKAGE, "assets", "VERSION")
 PACKAGES = find_packages(exclude=["tests"])
