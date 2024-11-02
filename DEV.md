@@ -83,8 +83,8 @@ Set them as environment variables.
 An example:
 
 ```bash
-export ACCESS_KEY=i0WR2K88Vnl7h4IJi6sL
-export SECRET_KEY=KiFiFWi5OV30gjuLAEa7Wpn9eWyV0CcTlfT2x69I
+export ACCESS_KEY=your_access_key
+export SECRET_KEY=your_secret_key
 ```
 
 In the application root directory run the tests:
