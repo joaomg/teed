@@ -35,7 +35,7 @@ import pyarrow.fs as fs
 # import yaml
 from lxml import etree
 
-from teed import TeedException
+from teed import TeedException, get_xml_encoding
 
 program = typer.Typer()
 
@@ -158,7 +158,14 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
                     #     <vn>Company NN</vn>
                     #     <cbt>20210301141500</cbt>
                     # </mfh>
-                    metadata["encoding"] = (element.getroottree()).docinfo.encoding
+                    doc_encoding = (element.getroottree()).docinfo.encoding
+                    encoding = (
+                        doc_encoding
+                        if doc_encoding is not None
+                        else get_xml_encoding(file_path)
+                    )
+
+                    metadata["encoding"] = encoding
 
                     for child in element:
                         metadata[child.tag] = child.text

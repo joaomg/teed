@@ -91,6 +91,10 @@ def test_bulkcm_probe_file_from_file_store():
     reason="Needs the MinIO file store running in http://localhost:9000",
 )
 def test_bulkcm_split_output_from_and_to_file_store():
+    """
+    Copy and split input file from file store.
+    Place the spli output into the file store.
+    """
     # input file is a URI
     # on the file store
     input_uri = f"s3://{ACCESS_KEY}:{SECRET_KEY}@data/bulkcm.xml?scheme=http&endpoint_override=localhost:9000"
@@ -360,10 +364,10 @@ def test_meas_parse_output_to_parquet_file_store():
         "ManagedElement: string",
         "RncFunction: string",
         "UtranCell: string",
-        "attTCHSeizures: int64",
-        "succTCHSeizures: int64",
-        "attImmediateAssignProcs: int64",
-        "succImmediateAssignProcs: int64",
+        "attTCHSeizures: uint32",
+        "succTCHSeizures: uint32",
+        "attImmediateAssignProcs: uint32",
+        "succImmediateAssignProcs: uint32",
         "day: date32[day]",
         "hh: uint8",
         "mm: uint8",
@@ -459,10 +463,10 @@ def test_meas_parse_output_to_parquet_file_store():
         "Node: string",
         "RncFunction: string",
         "UtranCell: string",
-        "attTCHSeizures: int64",
-        "succTCHSeizures: int64",
-        "attImmediateAssignProcs: int64",
-        "succImmediateAssignProcs: int64",
+        "attTCHSeizures: uint32",
+        "succTCHSeizures: uint32",
+        "attImmediateAssignProcs: uint32",
+        "succImmediateAssignProcs: uint32",
         "day: date32[day]",
         "hh: uint8",
         "mm: uint8",
@@ -552,10 +556,10 @@ def test_meas_parse_output_to_parquet_file_store():
     assert table_schema == [
         "RncFunction: string",
         "UtranCell: string",
-        "attTCHSeizures: int64",
-        "succTCHSeizures: int64",
-        "attImmediateAssignProcs: int64",
-        "succImmediateAssignProcs: int64",
+        "attTCHSeizures: uint32",
+        "succTCHSeizures: uint32",
+        "attImmediateAssignProcs: uint32",
+        "succImmediateAssignProcs: uint32",
         "Node: string",
         "day: date32[day]",
         "hh: uint8",

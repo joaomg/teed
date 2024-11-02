@@ -21,7 +21,7 @@ from io import TextIOWrapper
 import yaml
 from lxml import etree
 
-from teed import TeedException, file_path_parse
+from teed import TeedException, file_path_parse, get_xml_encoding
 
 program = typer.Typer()
 
@@ -614,11 +614,17 @@ def split_by_subnetwork(
                     yield (subnetwork_ids.pop(), sn_file_path)
 
                 elif event == "start" and localName == "bulkCmConfigDataFile":
+                    doc_encoding = (element.getroottree()).docinfo.encoding
+                    encoding = (
+                        doc_encoding
+                        if doc_encoding is not None
+                        else get_xml_encoding(file_path)
+                    )
                     bulkCmConfigDataFile = {
                         "tag": element.tag,
                         "attrib": element.attrib,
                         "nsmap": element.nsmap,
-                        "encoding": (element.getroottree()).docinfo.encoding,
+                        "encoding": encoding,
                     }
 
                 elif event == "start" and localName == "fileHeader":
@@ -642,7 +648,9 @@ def split_by_subnetwork(
             raise TeedException(e)
 
 
-def split(file_path: str, output_dir: str, subnetworks: List[str] = []) -> None:
+def split(
+    file_path_or_uri: str, output_dir_or_bucket: str, subnetworks: List[str] = []
+) -> None:
     """Split a BulkCm file by SubNetwork element using the split_by_subnetwork function.
 
     Write the SubNetwork(s) ElementTree to new file(s).
@@ -660,7 +668,9 @@ def split(file_path: str, output_dir: str, subnetworks: List[str] = []) -> None:
     sn_ids = []
     sn_file_paths = []
 
-    for sn_id, sn_file_path in split_by_subnetwork(file_path, output_dir, subnetworks):
+    for sn_id, sn_file_path in split_by_subnetwork(
+        file_path_or_uri, output_dir_or_bucket, subnetworks
+    ):
         sn_ids.append(sn_id)
         sn_file_paths.append(sn_file_path)
 
@@ -669,8 +679,8 @@ def split(file_path: str, output_dir: str, subnetworks: List[str] = []) -> None:
 
 @program.command(name="split")
 def split_program(
-    file_path: str,
-    output_dir: str,
+    file_path_or_uri: str,
+    output_dir_or_bucket: str,
     subnetworks: List[str] = typer.Option(
         [],
         "--subnetwork",
@@ -694,12 +704,12 @@ def split_program(
     sn_count = 0
     sn_ignored = 0
 
-    print(f"Splitting {file_path} to {output_dir}")
+    print(f"Splitting {file_path_or_uri} to {output_dir_or_bucket}")
 
     start = datetime.now()
 
     try:
-        sn_ids, sn_file_paths = split(file_path, output_dir, subnetworks)
+        sn_ids, sn_file_paths = split(file_path_or_uri, output_dir_or_bucket, subnetworks)
         for i, sn_file_path in enumerate(sn_file_paths):
             sn_id = sn_ids[i]
 
@@ -813,7 +823,12 @@ def probe(
                     subnetworks.append({"id": sn_id})
 
                 elif event == "start" and localName == "bulkCmConfigDataFile":
-                    encoding = (element.getroottree()).docinfo.encoding
+                    doc_encoding = (element.getroottree()).docinfo.encoding
+                    encoding = (
+                        doc_encoding
+                        if doc_encoding is not None
+                        else get_xml_encoding(path)
+                    )
                     bulkcm_info = {
                         "encoding": encoding,
                         "nsmap": element.nsmap,

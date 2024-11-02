@@ -80,11 +80,11 @@ http://localhost:9090/access-keys
 
 Set them as environment variables.
 
-An exem
+An example:
 
 ```bash
-export ACCESS_KEY=S2ieooLxhVY9jqxS8Upy
-export SECRET_KEY=9u7AoHMDDdoXxQm39YQpfk0yJmSKjuH3DeS3sNq2
+export ACCESS_KEY=i0WR2K88Vnl7h4IJi6sL
+export SECRET_KEY=KiFiFWi5OV30gjuLAEa7Wpn9eWyV0CcTlfT2x69I
 ```
 
 In the application root directory run the tests:
@@ -100,3 +100,26 @@ Calculate the code coverage:
 coverage run --source=teed -m pytest tests
 coverage report -m > coverage.report
 ```
+
+## In Windows
+
+The teed package doesn't work in Windows. 
+
+However it is possible to develop teed in Windows.
+
+To do so install WSL and configure Visual Studio Code to connect to the local WSL Ubuntu instance.
+
+See this articly for details:
+
+https://medium.com/@ishreyashkar06/a-quick-guide-to-setting-up-a-python-virtual-environment-through-wsl-in-vs-code-f23c233a313f
+
+Create & activate the virtual enviroment: 
+
+```shell
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+## Read / Write to filestore status
+
+TODO

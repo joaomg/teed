@@ -188,10 +188,10 @@ Create a Node column from the NEDN data. Identify the network node by this colum
 pyarrow.Table
 RncFunction: string
 UtranCell: string
-attTCHSeizures: int64
-succTCHSeizures: int64
-attImmediateAssignProcs: int64
-succImmediateAssignProcs: int64
+attTCHSeizures: uint32
+succTCHSeizures: uint32
+attImmediateAssignProcs: uint32
+succImmediateAssignProcs: uint32
 Node: string
 day: date32[day]
 hh: uint8

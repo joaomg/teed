@@ -53,7 +53,9 @@ def test_bulkcm_split_program():
     # lacking output directory parameter
     result = runner.invoke(program, "split data/tag_mismatch.xml")
     assert result.exit_code == 2
-    assert result.stdout.count("Error: Missing argument 'OUTPUT_DIR'.")
+    assert result.stdout.count(
+        "Usage: root split [OPTIONS] FILE_PATH_OR_URI OUTPUT_DIR_OR_BUCKET"
+    )
 
     # invalid xml file
     result = runner.invoke(program, "split data/tag_mismatch.xml data")
