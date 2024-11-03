@@ -177,20 +177,25 @@ def test_parse_output_to_csv_local_filesystem():
         pass
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
-    bulkcm.parse("data/bulkcm.xml", "data", stream, output_fs=ofs)
+    bulkcm.parse(os.path.abspath("data/bulkcm.xml"), "data", stream, output_fs=ofs)
 
     try:
         stream = bulkcm.BulkCmParser.stream_to_csv("data")
-        bulkcm.parse("data/bulkcm_empty.xml", "data", stream, output_fs=ofs)
+        bulkcm.parse(os.path.abspath("data/bulkcm.xml"), "data", stream, output_fs=ofs)
     except Exception as e:
         assert str(e) == "Document is empty, line 1, column 1 (bulkcm_empty.xml, line 1)"
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
-    bulkcm.parse("data/bulkcm_no_configData.xml", "data", stream, output_fs=ofs)
+    bulkcm.parse(
+        os.path.abspath("data/bulkcm_no_configData.xml"), "data", stream, output_fs=ofs
+    )
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
-    metadata, duration = bulkcm.parse(
-        "data/bulkcm_with_header_footer.xml", "data", stream, output_fs=ofs
+    metadata, _ = bulkcm.parse(
+        os.path.abspath("data/bulkcm_with_header_footer.xml"),
+        "data",
+        stream,
+        output_fs=ofs,
     )
 
     # verify metadata returned by parse
@@ -296,8 +301,8 @@ def test_parse_output_to_csv_local_filesystem():
         pass
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
-    metadata, duration = bulkcm.parse(
-        "data/bulkcm_with_utrancell.xml",
+    metadata, _ = bulkcm.parse(
+        os.path.abspath("data/bulkcm_with_utrancell.xml"),
         "data",
         stream,
         exclude_elements=["*"],
@@ -328,7 +333,7 @@ def test_parse_output_to_csv_local_filesystem():
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
     metadata, duration = bulkcm.parse(
-        "data/bulkcm_with_utrancell.xml",
+        os.path.abspath("data/bulkcm_with_utrancell.xml"),
         "data",
         stream,
         include_elements=["vsDataUtranCell"],
@@ -370,8 +375,11 @@ def test_parse_output_to_csv_local_filesystem():
     assert not (os.path.exists("data/RncFunction-e3c968f12ec1ae219a7e2f9d7829a67d.csv"))
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
-    metadata, duration = bulkcm.parse(
-        "data/bulkcm_with_vsdatacontainer.xml", "data", stream, output_fs=ofs
+    metadata, _ = bulkcm.parse(
+        os.path.abspath("data/bulkcm_with_vsdatacontainer.xml"),
+        "data",
+        stream,
+        output_fs=ofs,
     )
 
     with open(
@@ -421,8 +429,8 @@ def test_parse_output_to_csv_local_filesystem():
         ]
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
-    metadata, duration = bulkcm.parse(
-        "data/bulkcm_with_utrancell.xml", "data", stream, output_fs=ofs
+    metadata, _ = bulkcm.parse(
+        os.path.abspath("data/bulkcm_with_utrancell.xml"), "data", stream, output_fs=ofs
     )
 
     with open(

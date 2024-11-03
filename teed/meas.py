@@ -40,7 +40,7 @@ from teed import TeedException, get_xml_encoding
 program = typer.Typer()
 
 
-def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
+def produce(queue: Queue, plock: Lock, pathname: str, recursive=False):
     """Fetch Meas/Mdc files from pathname glob and parse
 
     For each measData/md element create a table item
@@ -50,17 +50,17 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
     Optionally search in the pathname subdirectories.
     """
 
-    with lock:
+    with plock:
         print(f"Producer starting {os.getpid()}")
 
     for file_path in glob.iglob(pathname, recursive=recursive):
         with open(file_path, mode="rb") as stream:
-            with lock:
+            with plock:
                 print(f"Parsing {file_path}")
 
             metadata = {"file_path": file_path}
 
-            for event, element in etree.iterparse(
+            for _, element in etree.iterparse(
                 stream,
                 events=("end",),
                 tag=(
@@ -139,13 +139,13 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
                         # place it in the queue
                         if table["rows"] != [] and mts != []:
                             table_name = (ldn.split(",")[-1]).split("=")[0]  # UtranCell
-                            with lock:
+                            with plock:
                                 print(f"Placing {table_name}")
 
                             queue.put(table)
                         else:
                             # ignoring this mi
-                            with lock:
+                            with plock:
                                 print("Warning, ignoring mi element due to lack of data")
                                 print(f"Number of mt's: #{len(mts)}")
                                 print(f"First mt: {mts[0]}")

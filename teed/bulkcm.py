@@ -327,7 +327,7 @@ class BulkCmParser:
 
 
 def parse(
-    file_path: str,
+    file_uri: str,
     output_dir_or_bucket: str,
     stream: Generator,
     include_elements: list = [],
@@ -337,7 +337,7 @@ def parse(
     """Parse BulkCm file and place it's content in output directories CSV files
 
     Parameters:
-        bulkcm file path (str): file_path
+        file_uri (str): file_uri
         output directory (str): output_dir_or_bucket
         send parsed nodes to stream (Generator): stream
         elements to parse (list): include_elements
@@ -348,9 +348,15 @@ def parse(
         bulkcm metadata and parsing duration (dict, timedelta): (metadata, duration)
     """
 
-    print(f"Parsing {file_path}")
-    if not (path.exists(file_path)):
-        raise TeedException(f"Error, input file {file_path} doesn't exists")
+    try:
+        # create input filesystem and path from the uri
+        input_fs, input_path = fs.FileSystem.from_uri(file_uri)
+    except ArrowInvalid:
+        raise TeedException(f"Error, check if the {file_uri} uri exists .")
+
+    # check if the file exists in the filesystem
+    if input_fs.get_file_info(input_path).type == fs.FileType.NotFound:
+        raise TeedException(f"Error, {file_uri} doesn't exists")
 
     if output_fs.get_file_info(output_dir_or_bucket).type == fs.FileType.NotFound:
         raise TeedException(
@@ -372,14 +378,14 @@ def parse(
 
     try:
         # parse the BulkCm file
-        metadata = etree.parse(file_path, parser)
+        with input_fs.open_input_stream(input_path) as input_stream:
+            metadata = etree.parse(input_stream, parser)
 
         # output metadata
-        _, file_name_without_ext, _ = file_path_parse(file_path)
+        _, file_name_without_ext, _ = file_path_parse(file_uri)
         metadata_file_path = output_fs.normalize_path(
             f"{output_dir_or_bucket}{path.sep}{file_name_without_ext}_metadata.yml"
         )
-        # with open(metadata_file_path, "w") as out:
         with output_fs.open_output_stream(metadata_file_path, compression=None) as out:
             with TextIOWrapper(out) as tout:
                 yaml.dump(metadata, tout, default_flow_style=False)
@@ -394,7 +400,7 @@ def parse(
 
 @program.command(name="parse")
 def parse_program(
-    file_path: str,
+    file_path_or_uri: str,
     output_dir: str,
     include_elements: List[str] = typer.Option(
         [],
@@ -414,22 +420,34 @@ def parse_program(
     Command-line program for bulkcm.parse function
 
     Parameters:
-        bulkcm file path (str): file_path
+        bulkcm file path (str): local file path or PyArrow URI
         output directory (str): output_dir
         elements to parse (list): include_elements
         elements to ignore (list): exclude_elements
     """
+
+    print(f"Parsing {file_path_or_uri}")
+
+    # check if file_path_or_uri is a local file path of a URI
+    if path.exists(file_path_or_uri):
+        file_uri = f"file://{path.abspath(file_path_or_uri)}"
+    else:
+        file_uri = file_path_or_uri
 
     try:
         # stream to csv files
         stream_csv = BulkCmParser.stream_to_csv(output_dir)
 
         _, duration = parse(
-            file_path, output_dir, stream_csv, include_elements, exclude_elements
+            file_uri,
+            output_dir,
+            stream_csv,
+            include_elements,
+            exclude_elements,
         )
         print(f"Duration: {duration}")
     except TeedException as e:
-        typer.secho(f"Error parsing {file_path}")
+        typer.secho(f"Error parsing {file_path_or_uri}")
         typer.secho(str(e), err=True, fg=typer.colors.RED, bold=True)
         exit(1)
 
@@ -792,7 +810,6 @@ def probe(
 
     search_tags = list(set(search_tags))
 
-    # with open(file_uri, mode="rb") as stream:
     with input_fs.open_input_stream(path) as stream:
         subnetworks = []
         try:

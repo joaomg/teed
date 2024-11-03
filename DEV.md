@@ -119,7 +119,3 @@ Create & activate the virtual enviroment:
 python3 -m venv .venv
 source .venv/bin/activate
 ```
-
-## Read / Write to filestore status
-
-TODO
