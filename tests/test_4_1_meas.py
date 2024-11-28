@@ -194,134 +194,133 @@ def test_meas_parse_consume_ldn_natural_key():
         ]
 
 
-def test_meas_parse_consume_custom():
-    """Plug a custom consume method into meas.parse"""
+def my_custom_consume(queue: Queue, lock: Lock, output_dir: str):
+    """Identical to consume_ldn_natural_key consumer method.
 
-    def my_custom_consume(queue: Queue, lock: Lock, output_dir: str):
-        """Identical to consume_ldn_natural_key consumer method.
+    But simplified to create a subdirectory inside output_dir per ManagedElement
 
-        But simplified to create a subdirectory inside output_dir per ManagedElement
+    And ignore the NEDN.
 
-        And ignore the NEDN.
+    The consumer implements ManagedElement partition creation.
 
-        The consumer implements ManagedElement partition creation.
+    And serves as an example for creating custom consumers.
 
-        And serves as an example for creating custom consumers.
+    Depending on the incoming data, a data engineer, can customize the CSV output.
 
-        Depending on the incoming data, a data engineer, can customize the CSV output.
+    Making it quicker, smaller in the disk and appropriate for the subsequent data pipeline.
 
-        Making it quicker, smaller in the disk and appropriate for the subsequent data pipeline.
+    To achive this the data engineer must have knowledge of the data and how the NEDN and LDN are built in the network.
 
-        To achive this the data engineer must have knowledge of the data and how the NEDN and LDN are built in the network.
+    In order to create simplified object keys.
+    """
 
-        In order to create simplified object keys.
-        """
+    writers = {}  # maps the node_key to it's writer
 
-        writers = {}  # maps the node_key to it's writer
+    with lock:
+        print(f"Consumer starting {os.getpid()}")
 
-        with lock:
-            print(f"Consumer starting {os.getpid()}")
+    while True:
+        try:
+            item = queue.get(block=True, timeout=0.05)
 
-        while True:
-            try:
-                item = queue.get(block=True, timeout=0.05)
+            # exit while loop on receiving DONE item
+            if item == "DONE":
+                break
 
-                # exit while loop on receiving DONE item
-                if item == "DONE":
-                    break
-
-                if item == "STOP":
-                    with lock:
-                        print("Stop received!")
-
-                    break
-
-                # DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1
-                nedn = item["rows"][0][1]
-                managed_element = nedn[nedn.find("ManagedElement=") :]
-
-                # RncFunction=RF-1,UtranCell=Gbg-997
-                ldn = item["rows"][0][2]
-                ldn_list = eval(f"""['{ldn.replace(",","','").replace("=","','")}']""")
-
-                ldn_keys = [item for i, item in enumerate(ldn_list) if i % 2 == 0]
-                columns_keys = ldn_keys
-                columns_values = item["mts"]
-                gp = item["gp"]
-
-                table_name = columns_keys[-1]
-                table_hash = hashlib.md5(
-                    "".join(columns_keys + columns_values).encode()
-                ).hexdigest()
-                table_key = f"{table_name}_{gp}_{table_hash}"
-
-                csv_path = path.normpath(
-                    f"{output_dir}{path.sep}{managed_element}{path.sep}{table_name}-{gp}-{table_hash}.csv"
-                )
-
-                if not (path.exists(csv_path)):
-                    # create ManagedElement directory
-                    dir_path = f"{output_dir}{path.sep}{managed_element}"
-                    os.mkdir(dir_path)
-
-                    # create new file
-                    csv_file = open(csv_path, mode="w", newline="")
-
-                    msg = f"Created {csv_path}"
-                    with lock:
-                        print(msg)
-
-                    writer = csv.writer(csv_file)
-                    # ST = measurement start time
-                    # NEDN = network element distinguished name
-                    # LDN = measured object distinguished name, within the context of the NEDN
-                    header = ["ST"] + columns_keys + columns_values
-                    writer.writerow(header)
-
-                    writers[table_key] = writer
-
-                elif table_key not in writers:
-                    # append to end of file
-                    csv_file = open(csv_path, mode="a", newline="")
-
-                    msg = f"Append {csv_path}"
-                    with lock:
-                        print(msg)
-
-                    writer = csv.writer(csv_file)
-                    writers[table_key] = writer
-
-                else:
-                    # file and writer exist
-                    # get previously created writer
-                    writer = writers.get(table_key)
-
-                # serialize rows to csv file
-                for row in item["rows"]:
-                    st = row.pop(0)
-                    # we're removing the nedn and ignoring it, we're partitioning the output per ManagedElement
-                    nedn = row.pop(0)
-                    ldn = row.pop(0)
-                    ldn_list = eval(
-                        f"""['{ldn.replace(",","','").replace("=","','")}']"""
-                    )
-                    ldn_values = [item for i, item in enumerate(ldn_list) if i % 2 != 0]
-                    writer.writerow([st] + ldn_values + row)
-
-                # flush the data to disk
-                csv_file.flush()
-
-            except KeyboardInterrupt:
+            if item == "STOP":
                 with lock:
-                    print("KeyboardInterrupt received, stopping!")
-
-                if csv_file:
-                    csv_file.flush()
+                    print("Stop received!")
 
                 break
 
-            except Empty:
-                continue
+            # DC=a1.companyNN.com,SubNetwork=1,IRPAgent=1,SubNetwork=CountryNN,MeContext=MEC-Gbg1,ManagedElement=RNC-Gbg-1
+            nedn = item["rows"][0][1]
+            managed_element = nedn[nedn.find("ManagedElement=") :]
+
+            # RncFunction=RF-1,UtranCell=Gbg-997
+            ldn = item["rows"][0][2]
+            ldn_list = eval(f"""['{ldn.replace(",","','").replace("=","','")}']""")
+
+            ldn_keys = [item for i, item in enumerate(ldn_list) if i % 2 == 0]
+            columns_keys = ldn_keys
+            columns_values = item["mts"]
+            gp = item["gp"]
+
+            table_name = columns_keys[-1]
+            table_hash = hashlib.md5(
+                "".join(columns_keys + columns_values).encode()
+            ).hexdigest()
+            table_key = f"{table_name}_{gp}_{table_hash}"
+
+            csv_path = path.normpath(
+                f"{output_dir}{path.sep}{managed_element}{path.sep}{table_name}-{gp}-{table_hash}.csv"
+            )
+
+            if not (path.exists(csv_path)):
+                # create ManagedElement directory
+                dir_path = f"{output_dir}{path.sep}{managed_element}"
+                os.mkdir(dir_path)
+
+                # create new file
+                csv_file = open(csv_path, mode="w", newline="")
+
+                msg = f"Created {csv_path}"
+                with lock:
+                    print(msg)
+
+                writer = csv.writer(csv_file)
+                # ST = measurement start time
+                # NEDN = network element distinguished name
+                # LDN = measured object distinguished name, within the context of the NEDN
+                header = ["ST"] + columns_keys + columns_values
+                writer.writerow(header)
+
+                writers[table_key] = writer
+
+            elif table_key not in writers:
+                # append to end of file
+                csv_file = open(csv_path, mode="a", newline="")
+
+                msg = f"Append {csv_path}"
+                with lock:
+                    print(msg)
+
+                writer = csv.writer(csv_file)
+                writers[table_key] = writer
+
+            else:
+                # file and writer exist
+                # get previously created writer
+                writer = writers.get(table_key)
+
+            # serialize rows to csv file
+            for row in item["rows"]:
+                st = row.pop(0)
+                # we're removing the nedn and ignoring it, we're partitioning the output per ManagedElement
+                nedn = row.pop(0)
+                ldn = row.pop(0)
+                ldn_list = eval(f"""['{ldn.replace(",","','").replace("=","','")}']""")
+                ldn_values = [item for i, item in enumerate(ldn_list) if i % 2 != 0]
+                writer.writerow([st] + ldn_values + row)
+
+            # flush the data to disk
+            csv_file.flush()
+
+        except KeyboardInterrupt:
+            with lock:
+                print("KeyboardInterrupt received, stopping!")
+
+            if csv_file:
+                csv_file.flush()
+
+            break
+
+        except Empty:
+            continue
+
+
+def test_meas_parse_consume_custom():
+    """Plug a custom consume method into meas.parse"""
 
     pathname = "data/mdc_c3_1.xml"
     output_dir = "data"

@@ -23,7 +23,8 @@ import os
 import signal
 import time
 from datetime import datetime, timedelta
-from multiprocessing import Lock, Process, Queue
+from multiprocessing import Lock, Process, Queue, set_start_method
+
 from os import path
 from queue import Empty
 import typer
@@ -38,6 +39,14 @@ from lxml import etree
 from teed import TeedException, get_xml_encoding
 
 program = typer.Typer()
+
+
+def initialize():
+    try:
+        set_start_method("spawn", force=True)
+    except RuntimeError:
+        # The start method can only be set once; ignore if already set.
+        pass
 
 
 def produce(queue: Queue, plock: Lock, pathname: str, recursive=False):
@@ -674,6 +683,8 @@ def parse(
     https://stackoverflow.com/questions/11515944/how-to-use-multiprocessing-queue-in-python
     """
 
+    initialize()
+
     # items queue
     queue = Queue()
 
@@ -693,7 +704,6 @@ def parse(
             args=(queue, lock, output_dir_or_bucket),
             kwargs=consume_kwargs,
         )
-        consumer_proc.daemon = True
 
         # Start the consumer
         # The Python VM will launch new independent processes for each Process object
@@ -703,6 +713,8 @@ def parse(
         # and start producing items to the queue
         produce(queue, lock, pathname)
 
+        # wait for child processes to end
+        consumer_proc.join()
     except KeyboardInterrupt:
         queue.put("STOP")
 
