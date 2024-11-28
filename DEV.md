@@ -65,12 +65,12 @@ Launch the MinIO docker container.
 Notice how the environment variable file is passed.
 
 ```bash
-docker run -dt                                  \
-  -p 9000:9000 -p 9090:9090                     \
-  -v PATH:/mnt/data                             \
-  -v /etc/default/minio/config_minio.env:/etc/config.env         \
-  -e "MINIO_CONFIG_ENV_FILE=/etc/config.env"    \
-  --name "minio_local"                          \
+docker run -dt
+  -p 9000:9000 -p 9090:9090
+  -v PATH:/mnt/data
+  -v /etc/default/minio/config_minio.env:/etc/config.env
+  -e "MINIO_CONFIG_ENV_FILE=/etc/config.env"
+  --name "minio_local"
   minio/minio server --console-address ":9090"
 ```
 
@@ -83,8 +83,8 @@ Set them as environment variables.
 An example:
 
 ```bash
-export ACCESS_KEY=your_access_key
-export SECRET_KEY=your_secret_key
+export ACCESS_KEY=qWNkiOtSVnkBOfVtGGtN
+export SECRET_KEY=RNtXUOrafhGntJUYMwnhljY8a43DiWQZwcm4lTVj
 ```
 
 In the application root directory run the tests:
