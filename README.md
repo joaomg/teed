@@ -113,15 +113,17 @@ And the later validating, cleaning and transforming data into a query ready syst
     +---------------+
     | Tabular files |
     |               |
-    |     .csv      |
+    |      CSV      |
     |    Parquet    |
     +---------------+
             |
-            |   frictionless-py (clean, validate, transform, publish)
+            |   frictionless-py and others (clean, validate, transform, publish)
             V
     +---------------+
     |    Dataset    |
     |     RDBMs     |
+    |    Iceberg    |
+    |     Trino     |
     +---------------+
 
 Much alike to the work done by PUDL, with [Frictionless Data](https://frictionlessdata.io/) itself, in [Frictionless Public Utility Data - A Pilot Study](https://frictionlessdata.io/blog/2020/03/18/frictionless-data-pilot-study).
