@@ -23,7 +23,8 @@ import os
 import signal
 import time
 from datetime import datetime, timedelta
-from multiprocessing import Lock, Process, Queue
+from multiprocessing import Lock, Process, Queue, set_start_method
+
 from os import path
 from queue import Empty
 import typer
@@ -35,12 +36,20 @@ import pyarrow.fs as fs
 # import yaml
 from lxml import etree
 
-from teed import TeedException
+from teed import TeedException, get_xml_encoding
 
 program = typer.Typer()
 
 
-def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
+def initialize():
+    try:
+        set_start_method("spawn", force=True)
+    except RuntimeError:
+        # The start method can only be set once; ignore if already set.
+        pass
+
+
+def produce(queue: Queue, plock: Lock, pathname: str, recursive=False):
     """Fetch Meas/Mdc files from pathname glob and parse
 
     For each measData/md element create a table item
@@ -50,17 +59,17 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
     Optionally search in the pathname subdirectories.
     """
 
-    with lock:
+    with plock:
         print(f"Producer starting {os.getpid()}")
 
     for file_path in glob.iglob(pathname, recursive=recursive):
         with open(file_path, mode="rb") as stream:
-            with lock:
+            with plock:
                 print(f"Parsing {file_path}")
 
             metadata = {"file_path": file_path}
 
-            for event, element in etree.iterparse(
+            for _, element in etree.iterparse(
                 stream,
                 events=("end",),
                 tag=(
@@ -139,13 +148,13 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
                         # place it in the queue
                         if table["rows"] != [] and mts != []:
                             table_name = (ldn.split(",")[-1]).split("=")[0]  # UtranCell
-                            with lock:
+                            with plock:
                                 print(f"Placing {table_name}")
 
                             queue.put(table)
                         else:
                             # ignoring this mi
-                            with lock:
+                            with plock:
                                 print("Warning, ignoring mi element due to lack of data")
                                 print(f"Number of mt's: #{len(mts)}")
                                 print(f"First mt: {mts[0]}")
@@ -158,7 +167,14 @@ def produce(queue: Queue, lock: Lock, pathname: str, recursive=False):
                     #     <vn>Company NN</vn>
                     #     <cbt>20210301141500</cbt>
                     # </mfh>
-                    metadata["encoding"] = (element.getroottree()).docinfo.encoding
+                    doc_encoding = (element.getroottree()).docinfo.encoding
+                    encoding = (
+                        doc_encoding
+                        if doc_encoding is not None
+                        else get_xml_encoding(file_path)
+                    )
+
+                    metadata["encoding"] = encoding
 
                     for child in element:
                         metadata[child.tag] = child.text
@@ -667,6 +683,8 @@ def parse(
     https://stackoverflow.com/questions/11515944/how-to-use-multiprocessing-queue-in-python
     """
 
+    initialize()
+
     # items queue
     queue = Queue()
 
@@ -686,7 +704,6 @@ def parse(
             args=(queue, lock, output_dir_or_bucket),
             kwargs=consume_kwargs,
         )
-        consumer_proc.daemon = True
 
         # Start the consumer
         # The Python VM will launch new independent processes for each Process object
@@ -696,6 +713,8 @@ def parse(
         # and start producing items to the queue
         produce(queue, lock, pathname)
 
+        # wait for child processes to end
+        consumer_proc.join()
     except KeyboardInterrupt:
         queue.put("STOP")
 

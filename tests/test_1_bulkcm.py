@@ -12,7 +12,9 @@ def test_probe():
     """Test bulkcm.probe"""
 
     # default probing
-    assert bulkcm.probe("data/bulkcm.xml") == {
+    file_uri = os.path.abspath("data/bulkcm.xml")
+
+    assert bulkcm.probe(file_uri) == {
         "encoding": "UTF-8",
         "nsmap": {
             None: "http://www.3gpp.org/ftp/specs/archive/32_series/32.615#configData",
@@ -29,7 +31,7 @@ def test_probe():
     }
 
     # probe by ManagementNode and ManagedElement
-    assert bulkcm.probe("data/bulkcm.xml", ["ManagementNode", "ManagedElement"]) == {
+    assert bulkcm.probe(file_uri, ["ManagementNode", "ManagedElement"]) == {
         "encoding": "UTF-8",
         "nsmap": {
             None: "http://www.3gpp.org/ftp/specs/archive/32_series/32.615#configData",
@@ -46,9 +48,10 @@ def test_probe():
     }
 
     # an invalid XML file raises an exception
+    file_uri = os.path.abspath("data/tag_mismatch.xml")
     try:
         bulkcm_file = []
-        bulkcm_file = bulkcm.probe("data/tag_mismatch.xml")
+        bulkcm_file = bulkcm.probe(file_uri)
     except Exception as e:
         # check the outcome is still an empty list
         assert bulkcm_file == []
@@ -57,7 +60,7 @@ def test_probe():
         # signals an invalid XML doc
         assert (
             str(e)
-            == "Opening and ending tag mismatch: abx line 15 and abcMax, line 15, column 65 (tag_mismatch.xml, line 15)"
+            == "Opening and ending tag mismatch: abx line 15 and abcMax, line 15, column 65 (<string>, line 15)"
         )
 
 
@@ -72,10 +75,49 @@ def test_split():
     except FileNotFoundError:
         pass
 
+    sn_ids, sn_file_paths = bulkcm.split("data/bulkcm.xml", "tests")
+
+    sn_id = sn_ids.pop()
+    sn_file_path = sn_file_paths.pop()
+
+    assert sn_id == "1"
+    assert sn_file_path == "tests/bulkcm_1.xml"
+
+    # compare contents with the input
+    # they must be the same since there's
+    # only a SubNetwork in bulkcm.xml
+    # using ns_clean we ignore the extra ns
+    # placed in the SubNetwork elements
+    parser = etree.XMLParser(
+        no_network=True,
+        ns_clean=True,
+        remove_blank_text=True,
+        remove_comments=True,
+        remove_pis=True,
+        huge_tree=True,
+        recover=False,
+    )
+    source = etree.parse("data/bulkcm.xml", parser=parser)
+    target = etree.parse(sn_file_path, parser=parser)
+
+    assert etree.tostring(source) == etree.tostring(target)
+
+
+def test_split_by_subnetwork():
+    """Test bulkcm.split_by_subnetwork"""
+
+    ofs = fs.LocalFileSystem()
+
+    # remove tests/bulkcm_SubNetwork_1.xml if exists
+    try:
+        ofs.delete_file("tests/bulkcm_1.xml")
+    except FileNotFoundError:
+        pass
+
     # split bulkcm.xml
     # ignore SubNetwork with id "1"
-    for sn_id, sn_file_path in bulkcm.split(
-        "data/bulkcm.xml", "tests", subnetworks=["dummyNetwork"], output_fs=ofs
+    for sn_id, sn_file_path in bulkcm.split_by_subnetwork(
+        "data/bulkcm.xml", "tests", subnetworks=["dummyNetwork"]
     ):
         assert sn_id == "1"
         assert sn_file_path is None
@@ -83,8 +125,8 @@ def test_split():
 
     # split bulkcm.xml
     # considered SubNetwork with id "1"
-    for sn_id, sn_file_path in bulkcm.split(
-        "data/bulkcm.xml", "tests", subnetworks=["1"], output_fs=ofs
+    for sn_id, sn_file_path in bulkcm.split_by_subnetwork(
+        "data/bulkcm.xml", "tests", subnetworks=["1"]
     ):
         assert sn_id == "1"
         assert sn_file_path == "tests/bulkcm_1.xml"
@@ -92,7 +134,7 @@ def test_split():
 
     # split bulkcm.xml
     # considered all/any SubNetwork
-    for sn_id, sn_file_path in bulkcm.split("data/bulkcm.xml", "tests", output_fs=ofs):
+    for sn_id, sn_file_path in bulkcm.split_by_subnetwork("data/bulkcm.xml", "tests"):
         assert sn_id == "1"
         assert sn_file_path == "tests/bulkcm_1.xml"
         assert os.path.exists(sn_file_path)
@@ -135,20 +177,25 @@ def test_parse_output_to_csv_local_filesystem():
         pass
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
-    bulkcm.parse("data/bulkcm.xml", "data", stream, output_fs=ofs)
+    bulkcm.parse(os.path.abspath("data/bulkcm.xml"), "data", stream, output_fs=ofs)
 
     try:
         stream = bulkcm.BulkCmParser.stream_to_csv("data")
-        bulkcm.parse("data/bulkcm_empty.xml", "data", stream, output_fs=ofs)
+        bulkcm.parse(os.path.abspath("data/bulkcm.xml"), "data", stream, output_fs=ofs)
     except Exception as e:
         assert str(e) == "Document is empty, line 1, column 1 (bulkcm_empty.xml, line 1)"
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
-    bulkcm.parse("data/bulkcm_no_configData.xml", "data", stream, output_fs=ofs)
+    bulkcm.parse(
+        os.path.abspath("data/bulkcm_no_configData.xml"), "data", stream, output_fs=ofs
+    )
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
-    metadata, duration = bulkcm.parse(
-        "data/bulkcm_with_header_footer.xml", "data", stream, output_fs=ofs
+    metadata, _ = bulkcm.parse(
+        os.path.abspath("data/bulkcm_with_header_footer.xml"),
+        "data",
+        stream,
+        output_fs=ofs,
     )
 
     # verify metadata returned by parse
@@ -254,8 +301,8 @@ def test_parse_output_to_csv_local_filesystem():
         pass
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
-    metadata, duration = bulkcm.parse(
-        "data/bulkcm_with_utrancell.xml",
+    metadata, _ = bulkcm.parse(
+        os.path.abspath("data/bulkcm_with_utrancell.xml"),
         "data",
         stream,
         exclude_elements=["*"],
@@ -286,7 +333,7 @@ def test_parse_output_to_csv_local_filesystem():
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
     metadata, duration = bulkcm.parse(
-        "data/bulkcm_with_utrancell.xml",
+        os.path.abspath("data/bulkcm_with_utrancell.xml"),
         "data",
         stream,
         include_elements=["vsDataUtranCell"],
@@ -328,8 +375,11 @@ def test_parse_output_to_csv_local_filesystem():
     assert not (os.path.exists("data/RncFunction-e3c968f12ec1ae219a7e2f9d7829a67d.csv"))
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
-    metadata, duration = bulkcm.parse(
-        "data/bulkcm_with_vsdatacontainer.xml", "data", stream, output_fs=ofs
+    metadata, _ = bulkcm.parse(
+        os.path.abspath("data/bulkcm_with_vsdatacontainer.xml"),
+        "data",
+        stream,
+        output_fs=ofs,
     )
 
     with open(
@@ -379,8 +429,8 @@ def test_parse_output_to_csv_local_filesystem():
         ]
 
     stream = bulkcm.BulkCmParser.stream_to_csv("data")
-    metadata, duration = bulkcm.parse(
-        "data/bulkcm_with_utrancell.xml", "data", stream, output_fs=ofs
+    metadata, _ = bulkcm.parse(
+        os.path.abspath("data/bulkcm_with_utrancell.xml"), "data", stream, output_fs=ofs
     )
 
     with open(

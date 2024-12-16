@@ -1,3 +1,4 @@
+import os
 import csv
 import datetime
 from io import TextIOWrapper
@@ -12,21 +13,29 @@ from teed import bulkcm, meas
 
 # file store credentials
 # create/fetch in MinIO
-ACCESS_KEY = "1atuJoRDF8iy2BR40Yv6"
-SECRET_KEY = "6EKNs22XJvMX7RiXWMwW84xxO1ppnStkA6C6kEDh"
+ACCESS_KEY = os.environ.get("ACCESS_KEY")
+SECRET_KEY = os.environ.get("SECRET_KEY")
 
 try:
+    # access the local MinIO instance
+    # with permission to create buckets
+    # allow_bucket_creation
     ofs = fs.S3FileSystem(
         access_key=ACCESS_KEY,
         secret_key=SECRET_KEY,
         scheme="http",
         endpoint_override="localhost:9000",
+        allow_bucket_creation=True,
     )
     ofs.create_dir("data")
     filestore_running = True
-except:
+except Exception as e:
     # file store isn't available in localhost:9000
     filestore_running = False
+
+    # output the Exception, just to understand what went wrong...
+    # place a failed assert somewhere below to see this
+    print(e)
 
 # output to MinIO file store
 ofs = fs.S3FileSystem(
@@ -41,23 +50,96 @@ ofs = fs.S3FileSystem(
     filestore_running == False,
     reason="Needs the MinIO file store running in http://localhost:9000",
 )
-def test_bulkcm_split_output_to_file_store():
-    # output to MinIO file store
-    ofs = fs.S3FileSystem(
-        access_key=ACCESS_KEY,
-        secret_key=SECRET_KEY,
-        scheme="http",
-        endpoint_override="localhost:9000",
+def test_bulkcm_probe_file_from_file_store():
+    # probe the data/bulkcm.xml file in MinIO localhost:9000
+
+    # delete remote file and recreate it
+    try:
+        ofs.delete_file("data/bulkcm.xml")
+    except FileNotFoundError:
+        pass
+
+    fs.copy_files(
+        "./data/bulkcm.xml",
+        "data/bulkcm.xml",
+        source_filesystem=fs.LocalFileSystem(),
+        destination_filesystem=ofs,
     )
+
+    # probe remote file
+    assert bulkcm.probe(
+        f"s3://{ACCESS_KEY}:{SECRET_KEY}@data/bulkcm.xml?scheme=http&endpoint_override=localhost:9000"
+    ) == {
+        "encoding": "UTF-8",
+        "nsmap": {
+            None: "http://www.3gpp.org/ftp/specs/archive/32_series/32.615#configData",
+            "xn": "http://www.3gpp.org/ftp/specs/archive/32_series/32.625#genericNrm",
+        },
+        "fileHeader": None,
+        "configData": [
+            {
+                "dnPrefix": "DC=a1.companyNN.com",
+                "SubNetwork(s)": [{"id": "1", "ManagementNode": 1, "ManagedElement": 2}],
+            }
+        ],
+        "fileFooter": None,
+    }
+
+
+@pytest.mark.skipif(
+    filestore_running == False,
+    reason="Needs the MinIO file store running in http://localhost:9000",
+)
+def test_bulkcm_split_from_and_to_file_store():
+    """
+    Copy and split input file from file store.
+    Place the split output into the file store.
+    """
+    # input file is a URI
+    # on the file store
+    input_uri = f"s3://{ACCESS_KEY}:{SECRET_KEY}@data/bulkcm.xml?scheme=http&endpoint_override=localhost:9000"
+
+    # create filesystem from data bucket URI
+    ifs, _ = fs.FileSystem.from_uri(input_uri)
+
+    # delete remote file data/bulkcm.xml
+    # and copy from local filesystem
+    try:
+        ifs.delete_file("data/bulkcm.xml")
+    except FileNotFoundError:
+        pass
+
+    fs.copy_files(
+        "./data/bulkcm.xml",
+        "data/bulkcm.xml",
+        source_filesystem=fs.LocalFileSystem(),
+        destination_filesystem=ifs,
+    )
+
+    # output split xml to directory
+    # bulkcm.xml-split-output in bucket data
+    # on the localhost:9000 file store
+    output_uri = f"s3://{ACCESS_KEY}:{SECRET_KEY}@data/bulkcm.xml-split-output?scheme=http&endpoint_override=localhost:9000"
+
+    # create filesystem from data bucket URI
+    ofs, _ = fs.FileSystem.from_uri(output_uri)
+
+    # delete remote dir and contents
+    try:
+        ofs.delete_file("data/bulkcm.xml-split-output")
+    except FileNotFoundError:
+        pass
 
     # split bulkcm.xml
     # considered all/any SubNetwork
-    for sn_id, sn_file_path in bulkcm.split(
-        "data/bulkcm.xml", "data/bulkcm.xml-split-output", output_fs=ofs
-    ):
-        assert sn_id == "1"
-        assert sn_file_path == "data/bulkcm.xml-split-output/bulkcm_1.xml"
-        assert (ofs.get_file_info(sn_file_path)).type == fs.FileType.File
+    sn_ids, sn_file_paths = bulkcm.split(input_uri, output_uri)
+
+    sn_id = sn_ids.pop()
+    sn_file_path = sn_file_paths.pop()
+
+    assert sn_id == "1"
+    assert sn_file_path == "data/bulkcm.xml-split-output/bulkcm_1.xml"
+    assert (ofs.get_file_info(sn_file_path)).type == fs.FileType.File
 
     # compare contents with the input
     # they must be the same since there's
@@ -83,39 +165,47 @@ def test_bulkcm_split_output_to_file_store():
     filestore_running == False,
     reason="Needs the MinIO file store running in http://localhost:9000",
 )
-def test_bulkcm_parse_output_to_csv_file_store():
-    # output to MinIO file store
-    ofs = fs.S3FileSystem(
-        access_key=ACCESS_KEY,
-        secret_key=SECRET_KEY,
-        scheme="http",
-        endpoint_override="localhost:9000",
-    )
+def test_bulkcm_split_by_subnetwork_output_to_file_store():
+    output_uri = f"s3://{ACCESS_KEY}:{SECRET_KEY}@data/bulkcm.xml-split-output?scheme=http&endpoint_override=localhost:9000"
 
-    # delete data/bulkcm_with_utrancell
+    # create filesystem from data bucket URI
+    ofs, _ = fs.FileSystem.from_uri(output_uri)
+
+    # delete remote dir and contents
     try:
-        ofs.delete_dir("data/bulkcm_with_utrancell")
-    except:
+        ofs.delete_file("data/bulkcm.xml-split-output")
+    except FileNotFoundError:
         pass
 
-    # create data/bulkcm_with_utrancell
-    try:
-        ofs.create_dir("data/bulkcm_with_utrancell")
-    except:
-        pass
+    # split bulkcm.xml
+    # considered all/any SubNetwork
+    for sn_id, sn_file_path in bulkcm.split_by_subnetwork("data/bulkcm.xml", output_uri):
+        assert sn_id == "1"
+        assert sn_file_path == "data/bulkcm.xml-split-output/bulkcm_1.xml"
+        assert (ofs.get_file_info(sn_file_path)).type == fs.FileType.File
 
-    # output csv data to S3 MinIO file store
-    stream = bulkcm.BulkCmParser.stream_to_csv(
-        "data/bulkcm_with_utrancell", output_fs=ofs
+    # compare contents with the input
+    # they must be the same since there's
+    # only a SubNetwork in bulkcm.xml
+    # using ns_clean we ignore the extra ns
+    # placed in the SubNetwork elements
+    parser = etree.XMLParser(
+        no_network=True,
+        ns_clean=True,
+        remove_blank_text=True,
+        remove_comments=True,
+        remove_pis=True,
+        huge_tree=True,
+        recover=False,
     )
+    source = etree.parse("data/bulkcm.xml", parser=parser)
+    target = etree.parse(ofs.open_input_stream(sn_file_path), parser=parser)
 
-    # ignoring metadata and duration
-    _, _ = bulkcm.parse(
-        "data/bulkcm_with_utrancell.xml",
-        "data/bulkcm_with_utrancell",
-        stream,
-        output_fs=ofs,
-    )
+    assert etree.tostring(source) == etree.tostring(target)
+
+
+def bulkcm_assert_parse(ofs):
+    """Check the content of the BulkCm parse output CSV files"""
 
     with ofs.open_input_stream(
         "data/bulkcm_with_utrancell/vsDataUtranCell-762627b0939d1ac04dadef2b58f194c1.csv"
@@ -166,6 +256,109 @@ def test_bulkcm_parse_output_to_csv_file_store():
                     "abcMax": "34",
                 }
             ]
+
+
+@pytest.mark.skipif(
+    filestore_running == False,
+    reason="Needs the MinIO file store running in http://localhost:9000",
+)
+def test_bulkcm_parse_to_csv_file_store():
+    # output to MinIO file store
+    ofs = fs.S3FileSystem(
+        access_key=ACCESS_KEY,
+        secret_key=SECRET_KEY,
+        scheme="http",
+        endpoint_override="localhost:9000",
+    )
+
+    # delete data/bulkcm_with_utrancell
+    try:
+        ofs.delete_dir("data/bulkcm_with_utrancell")
+    except:
+        pass
+
+    # create data/bulkcm_with_utrancell
+    try:
+        ofs.create_dir("data/bulkcm_with_utrancell")
+    except:
+        pass
+
+    # output csv data to S3 MinIO file store
+    stream = bulkcm.BulkCmParser.stream_to_csv(
+        "data/bulkcm_with_utrancell", output_fs=ofs
+    )
+
+    # ignoring metadata and duration
+    _, _ = bulkcm.parse(
+        os.path.abspath("data/bulkcm_with_utrancell.xml"),
+        "data/bulkcm_with_utrancell",
+        stream,
+        output_fs=ofs,
+    )
+
+    bulkcm_assert_parse(ofs)
+
+
+@pytest.mark.skipif(
+    filestore_running == False,
+    reason="Needs the MinIO file store running in http://localhost:9000",
+)
+def test_bulkcm_parse_from_and_to_csv_file_store():
+    # output to MinIO file store
+    ofs = fs.S3FileSystem(
+        access_key=ACCESS_KEY,
+        secret_key=SECRET_KEY,
+        scheme="http",
+        endpoint_override="localhost:9000",
+    )
+
+    # input file is a URI
+    # on the file store
+    input_uri = f"s3://{ACCESS_KEY}:{SECRET_KEY}@data/bulkcm_with_utrancell.xml?scheme=http&endpoint_override=localhost:9000"
+
+    # create filesystem from data bucket URI
+    ifs, _ = fs.FileSystem.from_uri(input_uri)
+
+    # delete remote file data/bulkcm_with_utrancell.xml
+    # and copy from local filesystem
+    try:
+        ifs.delete_file("data/bulkcm_with_utrancell.xml")
+    except FileNotFoundError:
+        pass
+
+    fs.copy_files(
+        "./data/bulkcm_with_utrancell.xml",
+        "data/bulkcm_with_utrancell.xml",
+        source_filesystem=fs.LocalFileSystem(),
+        destination_filesystem=ifs,
+    )
+
+    # delete data/bulkcm_with_utrancell
+    try:
+        ofs.delete_dir("data/bulkcm_with_utrancell")
+    except:
+        pass
+
+    # create data/bulkcm_with_utrancell
+    try:
+        ofs.create_dir("data/bulkcm_with_utrancell")
+    except:
+        pass
+
+    # output csv data to S3 MinIO file store
+    stream = bulkcm.BulkCmParser.stream_to_csv(
+        "data/bulkcm_with_utrancell", output_fs=ofs
+    )
+
+    # ignoring metadata and duration
+    _, _ = bulkcm.parse(
+        input_uri,
+        "data/bulkcm_with_utrancell",
+        stream,
+        output_fs=ofs,
+    )
+
+    bulkcm_assert_parse(ofs)
 
 
 @pytest.mark.skipif(
@@ -239,10 +432,10 @@ def test_meas_parse_output_to_parquet_file_store():
         "ManagedElement: string",
         "RncFunction: string",
         "UtranCell: string",
-        "attTCHSeizures: int64",
-        "succTCHSeizures: int64",
-        "attImmediateAssignProcs: int64",
-        "succImmediateAssignProcs: int64",
+        "attTCHSeizures: uint32",
+        "succTCHSeizures: uint32",
+        "attImmediateAssignProcs: uint32",
+        "succImmediateAssignProcs: uint32",
         "day: date32[day]",
         "hh: uint8",
         "mm: uint8",
@@ -338,10 +531,10 @@ def test_meas_parse_output_to_parquet_file_store():
         "Node: string",
         "RncFunction: string",
         "UtranCell: string",
-        "attTCHSeizures: int64",
-        "succTCHSeizures: int64",
-        "attImmediateAssignProcs: int64",
-        "succImmediateAssignProcs: int64",
+        "attTCHSeizures: uint32",
+        "succTCHSeizures: uint32",
+        "attImmediateAssignProcs: uint32",
+        "succImmediateAssignProcs: uint32",
         "day: date32[day]",
         "hh: uint8",
         "mm: uint8",
@@ -431,10 +624,10 @@ def test_meas_parse_output_to_parquet_file_store():
     assert table_schema == [
         "RncFunction: string",
         "UtranCell: string",
-        "attTCHSeizures: int64",
-        "succTCHSeizures: int64",
-        "attImmediateAssignProcs: int64",
-        "succImmediateAssignProcs: int64",
+        "attTCHSeizures: uint32",
+        "succTCHSeizures: uint32",
+        "attImmediateAssignProcs: uint32",
+        "succImmediateAssignProcs: uint32",
         "Node: string",
         "day: date32[day]",
         "hh: uint8",

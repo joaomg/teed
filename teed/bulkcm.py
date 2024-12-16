@@ -15,12 +15,13 @@ from typing import Generator, List
 
 import typer
 import pyarrow.fs as fs
+from pyarrow.lib import ArrowInvalid
 
 from io import TextIOWrapper
 import yaml
 from lxml import etree
 
-from teed import TeedException, file_path_parse
+from teed import TeedException, file_path_parse, get_xml_encoding
 
 program = typer.Typer()
 
@@ -282,7 +283,6 @@ class BulkCmParser:
             output filesystem (pyarrow.fs.FileSystem): output_fs
         """
 
-        csv_file = None
         writer = None
         writers = {}  # maps the node_key to it's writer
 
@@ -304,7 +304,6 @@ class BulkCmParser:
                     csv_path = output_fs.normalize_path(
                         f"{output_dir_or_bucket}{path.sep}{node_name}-{node_hash}.csv"
                     )
-                    # csv_file = open(csv_path, mode="w", newline="")
                     csv_bstream = output_fs.open_output_stream(csv_path, compression=None)
 
                     print(f"Created {csv_path}")
@@ -328,7 +327,7 @@ class BulkCmParser:
 
 
 def parse(
-    file_path: str,
+    file_uri: str,
     output_dir_or_bucket: str,
     stream: Generator,
     include_elements: list = [],
@@ -338,7 +337,7 @@ def parse(
     """Parse BulkCm file and place it's content in output directories CSV files
 
     Parameters:
-        bulkcm file path (str): file_path
+        file_uri (str): file_uri
         output directory (str): output_dir_or_bucket
         send parsed nodes to stream (Generator): stream
         elements to parse (list): include_elements
@@ -349,9 +348,15 @@ def parse(
         bulkcm metadata and parsing duration (dict, timedelta): (metadata, duration)
     """
 
-    print(f"Parsing {file_path}")
-    if not (path.exists(file_path)):
-        raise TeedException(f"Error, input file {file_path} doesn't exists")
+    try:
+        # create input filesystem and path from the uri
+        input_fs, input_path = fs.FileSystem.from_uri(file_uri)
+    except ArrowInvalid:
+        raise TeedException(f"Error, check if the {file_uri} uri exists .")
+
+    # check if the file exists in the filesystem
+    if input_fs.get_file_info(input_path).type == fs.FileType.NotFound:
+        raise TeedException(f"Error, {file_uri} doesn't exists")
 
     if output_fs.get_file_info(output_dir_or_bucket).type == fs.FileType.NotFound:
         raise TeedException(
@@ -373,14 +378,14 @@ def parse(
 
     try:
         # parse the BulkCm file
-        metadata = etree.parse(file_path, parser)
+        with input_fs.open_input_stream(input_path) as input_stream:
+            metadata = etree.parse(input_stream, parser)
 
         # output metadata
-        _, file_name_without_ext, _ = file_path_parse(file_path)
+        _, file_name_without_ext, _ = file_path_parse(file_uri)
         metadata_file_path = output_fs.normalize_path(
             f"{output_dir_or_bucket}{path.sep}{file_name_without_ext}_metadata.yml"
         )
-        # with open(metadata_file_path, "w") as out:
         with output_fs.open_output_stream(metadata_file_path, compression=None) as out:
             with TextIOWrapper(out) as tout:
                 yaml.dump(metadata, tout, default_flow_style=False)
@@ -395,7 +400,7 @@ def parse(
 
 @program.command(name="parse")
 def parse_program(
-    file_path: str,
+    file_path_or_uri: str,
     output_dir: str,
     include_elements: List[str] = typer.Option(
         [],
@@ -415,22 +420,34 @@ def parse_program(
     Command-line program for bulkcm.parse function
 
     Parameters:
-        bulkcm file path (str): file_path
+        bulkcm file path (str): local file path or PyArrow URI
         output directory (str): output_dir
         elements to parse (list): include_elements
         elements to ignore (list): exclude_elements
     """
+
+    print(f"Parsing {file_path_or_uri}")
+
+    # check if file_path_or_uri is a local file path of a URI
+    if path.exists(file_path_or_uri):
+        file_uri = f"file://{path.abspath(file_path_or_uri)}"
+    else:
+        file_uri = file_path_or_uri
 
     try:
         # stream to csv files
         stream_csv = BulkCmParser.stream_to_csv(output_dir)
 
         _, duration = parse(
-            file_path, output_dir, stream_csv, include_elements, exclude_elements
+            file_uri,
+            output_dir,
+            stream_csv,
+            include_elements,
+            exclude_elements,
         )
         print(f"Duration: {duration}")
     except TeedException as e:
-        typer.secho(f"Error parsing {file_path}")
+        typer.secho(f"Error parsing {file_path_or_uri}")
         typer.secho(str(e), err=True, fg=typer.colors.RED, bold=True)
         exit(1)
 
@@ -469,29 +486,21 @@ def subnetwork_writer(
                     xf.write(etree.Element("fileFooter", attrib=fileFooter["attrib"]))
 
 
-def split(
-    file_path: str,
-    output_dir_or_bucket: str,
-    subnetworks: list = [],
-    output_fs: fs.FileSystem = fs.LocalFileSystem(),
+def split_by_subnetwork(
+    file_path_or_uri: str, output_dir_or_bucket: str, subnetworks: list = []
 ) -> Generator[tuple, None, None]:
-    """Split a BulkCm file by SubNetwork element
-    using the split_by_subnetwork function.
-
-    Write the SubNetwork(s) ElementTree to new file(s).
+    """Search and write a SubNetwork(s) ElementTree to new file(s).
 
     If subnetworks contains values, these are the SubNetwork id's
 
-    which will be split to files. Other SubNetwork, not present in the list
-
-    are to be ignore.
+    which will be split to files. Other SubNetwork, not present in the list are to be ignore.
 
     By default subnetworks is empty. All SubNetwork are to be processed and split to a respective file.
 
     Parameters:
         bulkcm file path (str): file_path
         output directory (str): output_dir_or_bucket
-        list of SubNetwork id's (list): subnetworks (if empty considerer all SubNetwork's)
+        list of SubNetwork id's (list): subnetworks (if empty consider all SubNetwork's)
 
     Yields:
         Tuple with the SubNetwork id and file path: generator(sn_id, sn_file_path)
@@ -499,6 +508,38 @@ def split(
     Raise:
         TeedException (inside the split_by_subnetwork call)
     """
+
+    # handle input
+    if path.exists(file_path_or_uri):
+        # local file
+        file_path = file_path_or_uri
+    else:
+        # URI
+        # copy file to local filesystem for splitting
+        input_fs, file_path = fs.FileSystem.from_uri(file_path_or_uri)
+
+        # create destination local dir
+        output_dir = path.dirname(file_path)
+        os.makedirs(output_dir, exist_ok=True)
+
+        fs.copy_files(
+            file_path,
+            file_path,
+            source_filesystem=input_fs,
+            destination_filesystem=fs.LocalFileSystem(),
+        )
+
+    # handle output
+    if path.exists(output_dir_or_bucket):
+        # if the output_dir_or_bucket
+        # exists as a directory in the
+        # local filesystem
+        output_fs = fs.LocalFileSystem()
+        output_dir = output_dir_or_bucket
+    else:
+        # create the output filesystem from
+        # the output_dir_or_bucket URI
+        output_fs, output_dir = fs.FileSystem.from_uri(output_dir_or_bucket)
 
     # read file footer
     footer = []
@@ -573,7 +614,7 @@ def split(
 
                     # subnetwork will be split to it's file
                     sn_file_path = output_fs.normalize_path(
-                        f"{output_dir_or_bucket}{path.sep}{file_name_without_ext}_{'_'.join(subnetwork_ids)}.{file_ext}"
+                        f"{output_dir}{path.sep}{file_name_without_ext}_{'_'.join(subnetwork_ids)}.{file_ext}"
                     )
 
                     subnetwork_writer(
@@ -591,11 +632,17 @@ def split(
                     yield (subnetwork_ids.pop(), sn_file_path)
 
                 elif event == "start" and localName == "bulkCmConfigDataFile":
+                    doc_encoding = (element.getroottree()).docinfo.encoding
+                    encoding = (
+                        doc_encoding
+                        if doc_encoding is not None
+                        else get_xml_encoding(file_path)
+                    )
                     bulkCmConfigDataFile = {
                         "tag": element.tag,
                         "attrib": element.attrib,
                         "nsmap": element.nsmap,
-                        "encoding": (element.getroottree()).docinfo.encoding,
+                        "encoding": encoding,
                     }
 
                 elif event == "start" and localName == "fileHeader":
@@ -619,10 +666,39 @@ def split(
             raise TeedException(e)
 
 
+def split(
+    file_path_or_uri: str, output_dir_or_bucket: str, subnetworks: List[str] = []
+) -> None:
+    """Split a BulkCm file by SubNetwork element using the split_by_subnetwork function.
+
+    Write the SubNetwork(s) ElementTree to new file(s).
+
+    Calls the bulkcm.split_by_subnetwork function and
+
+    stores each SubNetwork id and file produced specific lists (sn_ids and sn_file_paths)
+
+    Parameters:
+        bulkcm file path (str): file_path
+        output directory (str): output_dir
+        list of SubNetwork id's (list): subnetworks (if empty consider all SubNetwork's)
+    """
+
+    sn_ids = []
+    sn_file_paths = []
+
+    for sn_id, sn_file_path in split_by_subnetwork(
+        file_path_or_uri, output_dir_or_bucket, subnetworks
+    ):
+        sn_ids.append(sn_id)
+        sn_file_paths.append(sn_file_path)
+
+    return sn_ids, sn_file_paths
+
+
 @program.command(name="split")
 def split_program(
-    file_path: str,
-    output_dir: str,
+    file_path_or_uri: str,
+    output_dir_or_bucket: str,
     subnetworks: List[str] = typer.Option(
         [],
         "--subnetwork",
@@ -640,18 +716,21 @@ def split_program(
     Parameters:
         bulkcm file path (str): file_path
         output directory (str): output_dir
-        list of SubNetwork id's (list): subnetworks (if empty considerer all SubNetwork's)
+        list of SubNetwork id's (list): subnetworks (if empty consider all SubNetwork's)
     """
 
     sn_count = 0
     sn_ignored = 0
 
-    print(f"Spliting {file_path} to {output_dir}")
+    print(f"Splitting {file_path_or_uri} to {output_dir_or_bucket}")
 
     start = datetime.now()
 
     try:
-        for sn_id, sn_file_path in split(file_path, output_dir, subnetworks):
+        sn_ids, sn_file_paths = split(file_path_or_uri, output_dir_or_bucket, subnetworks)
+        for i, sn_file_path in enumerate(sn_file_paths):
+            sn_id = sn_ids[i]
+
             if sn_file_path is not None:
                 # processed SubNetwork
                 print(f"SubNetwork {sn_id} in {sn_file_path}")
@@ -674,7 +753,7 @@ def split_program(
 
 
 def probe(
-    file_path: str,
+    file_uri: str,
     elements: list = [
         "ManagementNode",
         "MeContext",
@@ -691,7 +770,7 @@ def probe(
     Analysis the BulkCm file and counts the number of elements inside the SubNetwork(s)
 
     Parameters:
-        file_path (str): file_path
+        file_uri (str): file_uri (URI as in https://arrow.apache.org/docs/python/generated/pyarrow.fs.FileSystem.html#pyarrow.fs.FileSystem.from_uri)
         list of elements to count (list): elements
 
     Returns:
@@ -705,8 +784,15 @@ def probe(
     # stored in outcome dict
     bulkcm_info = {}
 
-    if not (path.exists(file_path)):
-        raise TeedException(f"Error, {file_path} doesn't exists")
+    try:
+        # create input filesystem and path from the uri
+        input_fs, path = fs.FileSystem.from_uri(file_uri)
+    except ArrowInvalid:
+        raise TeedException(f"Error, check if the {file_uri} uri exists .")
+
+    # check if the file exists in the filesystem
+    if input_fs.get_file_info(path).type == fs.FileType.NotFound:
+        raise TeedException(f"Error, {file_uri} doesn't exists")
 
     # add elements to tags
     # consider any namespace {*}
@@ -724,10 +810,9 @@ def probe(
 
     search_tags = list(set(search_tags))
 
-    try:
-        with open(file_path, mode="rb") as stream:
-            subnetworks = []
-
+    with input_fs.open_input_stream(path) as stream:
+        subnetworks = []
+        try:
             for event, element in etree.iterparse(
                 stream,
                 events=(
@@ -755,7 +840,12 @@ def probe(
                     subnetworks.append({"id": sn_id})
 
                 elif event == "start" and localName == "bulkCmConfigDataFile":
-                    encoding = (element.getroottree()).docinfo.encoding
+                    doc_encoding = (element.getroottree()).docinfo.encoding
+                    encoding = (
+                        doc_encoding
+                        if doc_encoding is not None
+                        else get_xml_encoding(path)
+                    )
                     bulkcm_info = {
                         "encoding": encoding,
                         "nsmap": element.nsmap,
@@ -780,15 +870,15 @@ def probe(
                 if event == "end":
                     element.clear(keep_tail=True)
 
-    except etree.XMLSyntaxError as e:
-        raise TeedException(e)
+        except etree.XMLSyntaxError as e:
+            raise TeedException(e)
 
     return bulkcm_info
 
 
 @program.command(name="probe")
 def probe_program(
-    file_path: str,
+    file_path_or_uri: str,
     elements: List[str] = typer.Option(
         [
             "ManagementNode",
@@ -812,20 +902,26 @@ def probe_program(
     It's the command-line program for bulkcm.probe function
 
     Parameters:
-        file_path (str): file_path
+        file_path_or_uri (str): local file path or PyArrow URI
         list of elements to count (list): elements
-        list of SubNetwork id's (list): subnetworks (if empty considerer all SubNetwork's)
+        list of SubNetwork id's (list): subnetworks (if empty consider all SubNetwork's)
     """
 
     bulkcm_info = []
 
-    print(f"Probing {file_path}")
+    print(f"Probing {file_path_or_uri}")
     print(f"Searching for {', '.join(elements)} elements inside SubNetworks")
 
     start = datetime.now()
 
+    # check if file_path_or_uri is a local file path of a URI
+    if path.exists(file_path_or_uri):
+        file_uri = f"file://{path.abspath(file_path_or_uri)}"
+    else:
+        file_uri = file_path_or_uri
+
     try:
-        bulkcm_info = probe(file_path, elements)
+        bulkcm_info = probe(file_uri, elements)
 
     except TeedException as e:
         typer.secho(str(e), err=True, fg=typer.colors.RED, bold=True)
